@@ -1,0 +1,1469 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Стенд ЭУСУ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* лабораторный журнал на миллиметровке: синие чернила, красный карандаш проверяющего, каналы осциллографа */
+:root {
+  --paper: #eef2ef;
+  --card: #f9fbfa;
+  --grid: #d5dfd9;
+  --grid2: #e3eae6;
+  --ink: #17324d;
+  --muted: #5a6b72;
+  --line: #c3d0c9;
+  --ch1: #2160c4;
+  --ch2: #d0462c;
+  --ch3: #1f8a5b;
+  --pencil: #c2362b;
+  --ok: #2b7a4b;
+  --amber: #b9770e;
+  --chip: #e2ebe6;
+  --f-display: "Unbounded", "Trebuchet MS", sans-serif;
+  --f-body: "Golos Text", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f171b; --card: #162127; --grid: #23323a; --grid2: #1b282f; --ink: #dbe7ea;
+    --muted: #8ea2aa; --line: #2c3f48; --ch1: #6aa5ff; --ch2: #ff8061; --ch3: #4cc38a;
+    --pencil: #ff6b5e; --ok: #4cc38a; --amber: #e0a73a; --chip: #1f2e35; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f171b; --card: #162127; --grid: #23323a; --grid2: #1b282f; --ink: #dbe7ea;
+  --muted: #8ea2aa; --line: #2c3f48; --ch1: #6aa5ff; --ch2: #ff8061; --ch3: #4cc38a;
+  --pencil: #ff6b5e; --ok: #4cc38a; --amber: #e0a73a; --chip: #1f2e35; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  background-image: linear-gradient(var(--grid2) 1px, transparent 1px), linear-gradient(90deg, var(--grid2) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ch1); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* шапка */
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--paper); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 0;
+}
+@media (max-width: 600px) { header.top { position: static; } }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.brand { display: flex; align-items: baseline; gap: 10px; cursor: pointer; background: none; border: 0; padding: 0; }
+.brand h1 { font-size: 20px; }
+.brand span { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.stats { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.stat { font-family: var(--f-mono); font-size: 12px; background: var(--chip); border-radius: 4px; padding: 4px 8px; }
+.stat b { font-weight: 600; }
+.navbtn { border: 1px solid var(--line); background: var(--card); border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.navbtn:hover { border-color: var(--ink); }
+
+/* карта */
+.hero { padding: 28px 0 8px; display: grid; gap: 10px; }
+.hero h2 { font-size: clamp(26px, 5vw, 42px); line-height: 1.08; max-width: 18ch; }
+.hero p { margin: 0; max-width: 62ch; color: var(--muted); }
+.benches { display: grid; gap: 10px; margin-top: 20px; }
+.bench {
+  display: grid; grid-template-columns: 76px 1fr auto; gap: 16px; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; cursor: pointer; text-align: left;
+}
+.bench:hover { border-color: var(--ink); }
+.bench .no { font-family: var(--f-display); font-size: 24px; color: var(--ch1); }
+.bench .no small { display: block; font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.bench h3 { font-size: 16px; }
+.bench p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.meter { display: flex; gap: 4px; align-items: center; }
+.meter i { width: 14px; height: 14px; border: 1.5px solid var(--line); border-radius: 50%; }
+.meter i.on { background: var(--amber); border-color: var(--amber); }
+.stamp {
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ok); border: 1.5px solid var(--ok); border-radius: 3px; padding: 2px 6px; transform: rotate(-4deg); display: inline-block;
+}
+.exam-card {
+  margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+  border: 2px dashed var(--pencil); border-radius: 6px; padding: 16px; background: var(--card);
+}
+.exam-card h3 { color: var(--pencil); }
+.exam-card p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.btn {
+  border: 0; background: var(--ink); color: var(--paper); border-radius: 4px; padding: 10px 16px; cursor: pointer; font-weight: 600;
+}
+.btn.red { background: var(--pencil); color: #fff; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* лаба */
+.labhead { padding: 22px 0 12px; display: grid; gap: 6px; }
+.labhead .eyebrow { font-family: var(--f-mono); font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.labhead h2 { font-size: clamp(22px, 4vw, 32px); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; cursor: pointer; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-color: var(--ch1); }
+
+.bench-grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .bench-grid { grid-template-columns: minmax(0, 1fr); } .bench { grid-template-columns: 56px 1fr; } .bench .meter { grid-column: 2; } }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.panel h4 { margin: 0; font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg button { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 5px 9px; cursor: pointer; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ctl { display: grid; gap: 2px; }
+.ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.ctl label .mono { color: var(--ch1); font-size: 12px; }
+.ctl input[type=range] { width: 100%; accent-color: var(--ch1); }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.ro { background: var(--chip); border-radius: 4px; padding: 8px 10px; min-width: 0; }
+.ro span { display: block; font-size: 11px; color: var(--muted); }
+.ro b { font-family: var(--f-mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+.note b { color: var(--ink); }
+.scope { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-width: 0; }
+.scope canvas { display: block; width: 100%; height: 240px; }
+.scope .cap { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); padding: 2px 4px 6px; }
+.scope .cap i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
+.plots { display: grid; gap: 12px; min-width: 0; }
+.missions { display: grid; gap: 8px; }
+.mission { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+.mission .box { width: 18px; height: 18px; border: 2px solid var(--line); border-radius: 3px; margin-top: 2px; display: grid; place-items: center; font-size: 12px; color: #fff; }
+.mission.done .box { background: var(--ok); border-color: var(--ok); }
+.mission.done p { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--ok); }
+.mission p { margin: 0; }
+
+/* вопросы */
+.qcard { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; gap: 14px; max-width: 760px; }
+.qmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.qtext { font-size: 17px; font-weight: 500; margin: 0; }
+.opts { display: grid; gap: 8px; }
+.opt { text-align: left; border: 1.5px solid var(--line); background: transparent; border-radius: 5px; padding: 10px 12px; cursor: pointer; font-size: 15px; }
+.opt:hover:not(:disabled) { border-color: var(--ink); }
+.opt.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.opt.wrong { border-color: var(--pencil); background: color-mix(in srgb, var(--pencil) 10%, transparent); }
+.opt:disabled { cursor: default; }
+.numrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.numrow input { font-family: var(--f-mono); font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); width: 160px; }
+.verdict { border-left: 4px solid var(--ok); padding: 8px 12px; background: var(--chip); border-radius: 0 4px 4px 0; display: grid; gap: 6px; }
+.verdict.bad { border-color: var(--pencil); }
+.verdict h5 { margin: 0; font-size: 14px; font-family: var(--f-display); }
+.verdict.bad h5 { color: var(--pencil); }
+.verdict.good h5 { color: var(--ok); }
+.verdict p { margin: 0; font-size: 14px; }
+.say { font-size: 14px; border: 1px dashed var(--line); border-radius: 4px; padding: 8px 10px; }
+.say b { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: block; }
+.progress { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; max-width: 760px; }
+.progress div { height: 100%; background: var(--ch1); transition: width .3s; }
+.lives { color: var(--pencil); letter-spacing: 2px; }
+.summary { display: grid; gap: 12px; max-width: 760px; }
+.grade { font-family: var(--f-display); font-size: 40px; }
+
+/* шпаргалка */
+.cheat { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.cheat .c { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.cheat .c h5 { margin: 0 0 6px; font-size: 14px; }
+.cheat .c p { margin: 0; font-size: 14px; }
+.cheat .f { font-family: var(--f-mono); font-size: 13px; color: var(--ch1); display: block; margin-top: 4px; overflow-x: auto; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 5px; font-size: 14px; z-index: 20; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button class="brand" id="home" type="button"><h1>Стенд ЭУСУ</h1><span>ЛР2-ЛР8 · LT1001</span></button>
+    <div class="stats">
+      <span class="stat">XP <b id="xp">0</b></span>
+      <span class="stat">Зачтено <b id="passed">0</b>/7</span>
+      <span class="stat">Ошибок к повтору <b id="due">0</b></span>
+    </div>
+    <button class="navbtn" id="review" type="button">Работа над ошибками</button>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+// ---------- комплексные числа ----------
+const C = (re, im = 0) => [re, im];
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cabs = a => Math.hypot(a[0], a[1]);
+const carg = a => Math.atan2(a[1], a[0]);
+const cinv = a => cdiv([1, 0], a);
+const par = (a, b) => cdiv(cmul(a, b), cadd(a, b));
+const zC = (f, c) => cinv([0, 2 * Math.PI * f * c]);
+const zR = r => [r, 0];
+
+// модель LT1001: fT 0,85 МГц, второй полюс 1,75 МГц, A0 = 1e6 (откалибровано по LTspice)
+const OA = { A0: 1e6, fT: 0.85e6, f2: 1.75e6, SR: 0.25e6, Usat: 14.05 };
+function Aol(f, ideal) {
+  if (ideal) return [1e12, 0];
+  const fp = OA.fT / OA.A0;
+  return cdiv([OA.A0, 0], cmul([1, f / fp], [1, f / OA.f2]));
+}
+// инвертирующая схема с конечным усилением ОУ
+function invH(f, Zin, Zf, ideal) {
+  const ratio = cdiv(Zf, Zin);
+  const a = Aol(f, ideal);
+  return cmul([-1, 0], cdiv(ratio, cadd([1, 0], cdiv(cadd([1, 0], ratio), a))));
+}
+// узловой расчёт схемы с ОУ: узлы in = 1 В, gnd = 0, ОУ как источник Vo = A (V+ - V-)
+function nodal(f, net, ideal) {
+  const idx = {}; net.nodes.forEach((n, i) => idx[n] = i);
+  const N = net.nodes.length;
+  const M = Array.from({ length: N }, () => Array.from({ length: N }, () => [0, 0]));
+  const rhs = Array.from({ length: N }, () => [0, 0]);
+  const known = n => n === 'in' ? [1, 0] : n === 'gnd' ? [0, 0] : null;
+  for (const [t, a, b, v] of net.el) {
+    const Y = t === 'R' ? [1 / v, 0] : [0, 2 * Math.PI * f * v];
+    for (const [p, q] of [[a, b], [b, a]]) {
+      if (!(p in idx) || p === net.op.o) continue;
+      M[idx[p]][idx[p]] = cadd(M[idx[p]][idx[p]], Y);
+      if (q in idx) M[idx[p]][idx[q]] = csub(M[idx[p]][idx[q]], Y);
+      else rhs[idx[p]] = cadd(rhs[idx[p]], cmul(Y, known(q)));
+    }
+  }
+  const A = Aol(f, ideal), o = idx[net.op.o];
+  M[o][o] = cadd(M[o][o], [1, 0]);
+  const put = (node, sign) => {
+    const k = cmul(A, [sign, 0]);
+    if (node in idx) M[o][idx[node]] = csub(M[o][idx[node]], k);
+    else rhs[o] = cadd(rhs[o], cmul(k, known(node)));
+  };
+  put(net.op.p, 1); put(net.op.m, -1);
+  // гаусс с выбором главного элемента
+  for (let c = 0; c < N; c++) {
+    let best = c;
+    for (let r = c + 1; r < N; r++) if (cabs(M[r][c]) > cabs(M[best][c])) best = r;
+    [M[c], M[best]] = [M[best], M[c]]; [rhs[c], rhs[best]] = [rhs[best], rhs[c]];
+    for (let r = c + 1; r < N; r++) {
+      const k = cdiv(M[r][c], M[c][c]);
+      for (let j = c; j < N; j++) M[r][j] = csub(M[r][j], cmul(k, M[c][j]));
+      rhs[r] = csub(rhs[r], cmul(k, rhs[c]));
+    }
+  }
+  const x = Array(N);
+  for (let r = N - 1; r >= 0; r--) {
+    let s = rhs[r];
+    for (let j = r + 1; j < N; j++) s = csub(s, cmul(M[r][j], x[j]));
+    x[r] = cdiv(s, M[r][r]);
+  }
+  return x[o];
+}
+
+// ---------- форматирование ----------
+const fmt = (v, d = 2) => {
+  if (!isFinite(v)) return '∞';
+  v = +v.toFixed(d); if (v === 0) v = 0;
+  return v.toLocaleString('ru-RU', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+};
+function si(v, unit, d = 3) {
+  const a = Math.abs(v);
+  if (a === 0) return '0 ' + unit;
+  const pre = [[1e6, 'М'], [1e3, 'к'], [1, ''], [1e-3, 'м'], [1e-6, 'мк'], [1e-9, 'н'], [1e-12, 'п']];
+  for (const [m, p] of pre) if (a >= m * 0.9995 || m === 1e-12) return fmt(v / m, d) + ' ' + p + unit;
+  return fmt(v, d) + ' ' + unit;
+}
+const db = v => 20 * Math.log10(v);
+// уточнение экстремума между соседними точками сетки (острые пики и провалы)
+function refine(fs, ys, fn, sign) {
+  let k = 0;
+  ys.forEach((y, i) => { if (sign * y > sign * ys[k]) k = i; });
+  let a = fs[Math.max(0, k - 1)], b = fs[Math.min(fs.length - 1, k + 1)], bx = fs[k], by = ys[k];
+  for (let r = 0; r < 3; r++) {
+    for (let i = 0; i <= 40; i++) {
+      const f = a * Math.pow(b / a, i / 40), y = fn(f);
+      if (sign * y > sign * by) { by = y; bx = f; }
+    }
+    const w = Math.pow(b / a, 1 / 40); a = bx / w; b = bx * w;
+  }
+  return [bx, by];
+}
+const logspace = (a, b, n) => Array.from({ length: n }, (_, i) => a * Math.pow(b / a, i / (n - 1)));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const softmin = (a, b, k) => -k * Math.log(Math.exp(-a / k) + Math.exp(-b / k));
+const $ = (s, el = document) => el.querySelector(s);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------- рисование графиков ----------
+function niceTicks(min, max, n = 6) {
+  const span = max - min, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || mag * 10;
+  const out = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-6; v += step) out.push(+v.toPrecision(10));
+  return out;
+}
+function plot(cv, cfg) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const L = 52, R = cfg.y2 ? 46 : 12, T = 10, B = 28;
+  const pw = W - L - R, ph = H - T - B;
+  const xs = cfg.x, ys = cfg.y;
+  const tx = v => xs.log ? L + pw * Math.log10(v / xs.min) / Math.log10(xs.max / xs.min) : L + pw * (v - xs.min) / (xs.max - xs.min);
+  const ty = (v, ax = ys) => T + ph * (1 - (v - ax.min) / (ax.max - ax.min));
+  const ink = css('--ink'), muted = css('--muted'), grid = css('--grid');
+  g.font = '11px "JetBrains Mono", monospace'; g.lineWidth = 1;
+  // сетка
+  g.strokeStyle = grid; g.fillStyle = muted; g.textAlign = 'center'; g.textBaseline = 'top';
+  let xt;
+  if (xs.log) {
+    xt = [];
+    for (let e = Math.floor(Math.log10(xs.min)); e <= Math.ceil(Math.log10(xs.max)); e++) {
+      for (let m = 1; m < 10; m++) {
+        const v = m * Math.pow(10, e);
+        if (v < xs.min * 0.999 || v > xs.max * 1.001) continue;
+        g.globalAlpha = m === 1 ? 1 : 0.45;
+        g.beginPath(); g.moveTo(tx(v), T); g.lineTo(tx(v), T + ph); g.stroke();
+        if (m === 1) xt.push(v);
+      }
+    }
+    g.globalAlpha = 1;
+  } else {
+    xt = niceTicks(xs.min, xs.max, Math.max(3, Math.floor(pw / 80)));
+    for (const v of xt) { g.beginPath(); g.moveTo(tx(v), T); g.lineTo(tx(v), T + ph); g.stroke(); }
+  }
+  for (const v of xt) g.fillText(xs.fmt ? xs.fmt(v) : fmt(v), tx(v), T + ph + 6);
+  const yt = niceTicks(ys.min, ys.max, Math.max(3, Math.floor(ph / 40)));
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (const v of yt) {
+    g.beginPath(); g.moveTo(L, ty(v)); g.lineTo(L + pw, ty(v)); g.stroke();
+    g.fillText(ys.fmt ? ys.fmt(v) : fmt(v), L - 6, ty(v));
+  }
+  if (cfg.y2) {
+    g.textAlign = 'left';
+    for (const v of cfg.y2.ticks || niceTicks(cfg.y2.min, cfg.y2.max, 4)) g.fillText(cfg.y2.fmt ? cfg.y2.fmt(v) : fmt(v), L + pw + 6, ty(v, cfg.y2));
+  }
+  g.strokeStyle = ink; g.strokeRect(L, T, pw, ph);
+  // линии уровня
+  for (const h of cfg.hlines || []) {
+    g.save(); g.strokeStyle = h.color || muted; g.setLineDash([5, 4]);
+    g.beginPath(); g.moveTo(L, ty(h.y)); g.lineTo(L + pw, ty(h.y)); g.stroke(); g.restore();
+  }
+  for (const v of cfg.vlines || []) {
+    if (v.x < xs.min || v.x > xs.max) continue;
+    g.save(); g.strokeStyle = v.color || muted; g.setLineDash(v.dash || [5, 4]); g.lineWidth = v.w || 1;
+    g.beginPath(); g.moveTo(tx(v.x), T); g.lineTo(tx(v.x), T + ph); g.stroke(); g.restore();
+  }
+  // кривые
+  g.save(); g.beginPath(); g.rect(L, T, pw, ph); g.clip();
+  for (const s of cfg.series) {
+    const ax = s.y2 ? cfg.y2 : ys;
+    g.strokeStyle = s.color; g.lineWidth = s.w || 2; g.setLineDash(s.dash || []);
+    g.lineJoin = 'round'; g.beginPath();
+    let pen = false;
+    for (let i = 0; i < s.x.length; i++) {
+      const X = tx(s.x[i]), Y = ty(clamp(s.y[i], ax.min - (ax.max - ax.min), ax.max + (ax.max - ax.min)), ax);
+      if (!isFinite(Y)) { pen = false; continue; }
+      if (pen) g.lineTo(X, Y); else { g.moveTo(X, Y); pen = true; }
+    }
+    g.stroke();
+    if (s.band) { // огибающая пульсаций
+      g.globalAlpha = 0.35; g.fillStyle = s.color; g.beginPath();
+      for (let i = 0; i < s.x.length; i++) g.lineTo(tx(s.x[i]), ty(s.band[1][i], ax));
+      for (let i = s.x.length - 1; i >= 0; i--) g.lineTo(tx(s.x[i]), ty(s.band[0][i], ax));
+      g.fill(); g.globalAlpha = 1;
+    }
+  }
+  for (const p of cfg.points || []) {
+    g.fillStyle = p.color; g.beginPath(); g.arc(tx(p.x), ty(p.y, p.y2 ? cfg.y2 : ys), 4.5, 0, 7); g.fill();
+  }
+  g.restore();
+  if (cfg.xlabel) { g.fillStyle = muted; g.textAlign = 'right'; g.textBaseline = 'top'; g.fillText(cfg.xlabel, L + pw - 4, T + 4); }
+}
+const fHz = v => v >= 1e6 ? fmt(v / 1e6) + 'М' : v >= 1e3 ? fmt(v / 1e3) + 'к' : fmt(v);
+
+// ---------- общий конструктор стенда ----------
+// spec: {params:{key:{type:'seg'|'range', ...}}, view(state) -> {readouts, plots, note}}
+function scopeBox(id, legend) {
+  return `<div class="scope"><div class="cap">${legend.map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div><canvas id="${id}"></canvas></div>`;
+}
+function buildBench(root, lab) {
+  const S = lab.sim, st = progress.labs[lab.id].sim || (progress.labs[lab.id].sim = JSON.parse(JSON.stringify(S.init)));
+  root.innerHTML = `<div class="bench-grid">
+    <div class="panel" id="ctlpanel"></div>
+    <div class="plots"><div class="readouts" id="ro"></div><div id="plotarea" class="plots"></div><p class="note" id="simnote"></p>
+      <div class="panel"><h4>Задания на стенде</h4><div class="missions" id="missions"></div></div></div></div>`;
+  const draw = () => {
+    const ctl = $('#ctlpanel', root);
+    ctl.innerHTML = S.controls(st).map(c => {
+      if (c.type === 'seg') return `<div class="ctl"><h4>${c.label}</h4><div class="seg">${c.opts.map(([v, t]) =>
+        `<button type="button" data-k="${c.key}" data-v="${v}" aria-pressed="${st[c.key] === v}">${t}</button>`).join('')}</div></div>`;
+      const pos = c.log ? Math.log(st[c.key] / c.min) / Math.log(c.max / c.min) * 1000 : (st[c.key] - c.min) / (c.max - c.min) * 1000;
+      return `<div class="ctl"><label for="r-${c.key}">${c.label}<span class="mono" id="v-${c.key}">${c.show(st[c.key])}</span></label>
+        <input type="range" id="r-${c.key}" data-k="${c.key}" min="0" max="1000" value="${pos}"></div>`;
+    }).join('');
+    ctl.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+      const v = b.dataset.v; st[b.dataset.k] = isNaN(+v) ? v : +v; save(); draw();
+    });
+    ctl.querySelectorAll('input[type=range]').forEach(inp => {
+      const c = S.controls(st).find(x => x.key === inp.dataset.k);
+      inp.oninput = () => {
+        const p = inp.value / 1000;
+        let v = c.log ? c.min * Math.pow(c.max / c.min, p) : c.min + (c.max - c.min) * p;
+        if (c.step) v = Math.round(v / c.step) * c.step;
+        st[c.key] = v; $('#v-' + c.key, root).textContent = c.show(v); schedule();
+      };
+      inp.onchange = save;
+    });
+    render();
+  };
+  let pend = false;
+  const schedule = () => { if (!pend) { pend = true; requestAnimationFrame(() => { pend = false; render(); }); } };
+  const render = () => {
+    const out = S.view(st);
+    $('#ro', root).innerHTML = out.readouts.map(([k, v]) => `<div class="ro"><span>${k}</span><b>${v}</b></div>`).join('');
+    const pa = $('#plotarea', root);
+    const ids = out.plots.map((p, i) => 'pl' + i).join();
+    if (pa.dataset.ids !== ids + out.plots.map(p => p.legend.map(l => l[1]).join()).join()) {
+      pa.innerHTML = out.plots.map((p, i) => scopeBox('pl' + i, p.legend)).join('');
+      pa.dataset.ids = ids + out.plots.map(p => p.legend.map(l => l[1]).join()).join();
+    }
+    out.plots.forEach((p, i) => plot($('#pl' + i, root), p.cfg));
+    $('#simnote', root).innerHTML = out.note || '';
+    lastRender = () => out.plots.forEach((p, i) => plot($('#pl' + i, root), p.cfg));
+    // задания
+    const done = progress.labs[lab.id].missions;
+    S.missions.forEach(m => {
+      if (!done[m.id] && m.check(st, out.v || {})) { done[m.id] = true; addXP(20); toast('Задание выполнено: +20 XP'); save(); }
+    });
+    $('#missions', root).innerHTML = S.missions.map(m => `<div class="mission ${done[m.id] ? 'done' : ''}"><span class="box">${done[m.id] ? '✓' : ''}</span>
+      <p>${m.text}${done[m.id] && m.after ? `<br><span class="note">${m.after}</span>` : ''}</p></div>`).join('');
+  };
+  draw();
+}
+let lastRender = null;
+
+// ---------- ЛР2: интегратор и дифференциатор ----------
+const LR2C = {
+  int: { name: 'Идеальный интегратор', H: (f, s, id) => invH(f, zR(100e3), zC(f, 795.8e-12), id), A: 0.5 },
+  intp: { name: 'Практический интегратор', H: (f, s, id) => invH(f, zR(100e3), par(zR(s.R2), zC(f, 795.8e-12)), id), A: 0.5 },
+  dif: { name: 'Идеальный дифференциатор', H: (f, s, id) => invH(f, zC(f, 1.5915e-9), zR(50e3), id), A: 0.5 },
+  difp: { name: 'Практический дифференциатор', H: (f, s, id) => invH(f, cadd(zR(500), zC(f, 15.915e-9)), par(zR(50e3), zC(f, 15.915e-12)), id), A: 0.05 },
+};
+function periodic(st, H) {
+  // установившийся отклик на периодический сигнал через ряд Фурье
+  const f = st.f, P = 1 / f, n = 700, A = st.amp;
+  const harm = [];
+  const kmax = st.wave === 'sine' ? 1 : Math.min(2001, Math.floor(4e6 / f));
+  for (let k = 1; k <= kmax; k += (st.wave === 'sine' ? 1 : 2)) {
+    let a;
+    if (st.wave === 'sine') a = A;
+    else if (st.wave === 'square') a = 4 * A / (Math.PI * k);
+    else a = 8 * A / (Math.PI * Math.PI * k * k) * ((k - 1) / 2 % 2 ? -1 : 1);
+    const h = H(k * f);
+    harm.push([k, a, cabs(h), carg(h)]);
+  }
+  const t = [], vin = [], vout = [];
+  let clipped = false;
+  for (let i = 0; i < n; i++) {
+    const tt = 3 * P * i / (n - 1), w = 2 * Math.PI * f * tt;
+    let x = 0, y = 0;
+    for (const [k, a, m, ph] of harm) { x += a * Math.sin(k * w); y += a * m * Math.sin(k * w + ph); }
+    if (Math.abs(y) > OA.Usat) { y = Math.sign(y) * OA.Usat; clipped = true; }
+    t.push(tt * 1e3); vin.push(x); vout.push(y);
+  }
+  return { t, vin, vout, clipped };
+}
+const LR2 = {
+  init: { c: 'int', wave: 'sine', f: 2000, amp: 0.5, R2: 330e3, ideal: 'lt' },
+  controls: s => [
+    { type: 'seg', key: 'c', label: 'Схема', opts: Object.entries(LR2C).map(([k, v]) => [k, v.name]) },
+    { type: 'seg', key: 'wave', label: 'Сигнал на входе', opts: [['sine', 'Синус'], ['square', 'Прямоугольник'], ['tri', 'Треугольник']] },
+    { type: 'range', key: 'f', label: 'Частота', min: 10, max: 200e3, log: true, show: v => si(v, 'Гц') },
+    { type: 'range', key: 'amp', label: 'Амплитуда входа', min: 0.01, max: 2, log: true, show: v => si(v, 'В') },
+    ...(s.c === 'intp' ? [{ type: 'range', key: 'R2', label: 'R2 (параллельно C1)', min: 50e3, max: 10e6, log: true, show: v => si(v, 'Ом') }] : []),
+    { type: 'seg', key: 'ideal', label: 'Операционный усилитель', opts: [['lt', 'LT1001 (fT 0,85 МГц)'], ['id', 'Идеальный']] },
+  ],
+  view(s) {
+    const c = LR2C[s.c], id = s.ideal === 'id';
+    const H = f => c.H(f, s, id);
+    const fs = logspace(10, 1e6, 400);
+    const mag = fs.map(f => db(cabs(H(f))));
+    const pha = fs.map(f => carg(H(f)) * 180 / Math.PI);
+    const h0 = H(s.f), K = cabs(h0);
+    const r = periodic(s, H);
+    let [fpk, peak] = refine(fs, mag, f => db(cabs(H(f))), 1);
+    const ro = [['|K| на ' + si(s.f, 'Гц'), fmt(K, 3) + ' (' + fmt(db(K), 1) + ' дБ)'], ['Фаза', fmt(carg(h0) * 180 / Math.PI, 0) + '°'],
+      ['Uвых (по 1-й гармонике)', si(K * s.amp, 'В')]];
+    if (s.c === 'intp') ro.push(['fср = 1/(2πR2C1)', si(1 / (2 * Math.PI * s.R2 * 795.8e-12), 'Гц')]);
+    if (s.c.startsWith('dif')) ro.push(['Пик АЧХ', fmt(Math.pow(10, peak / 20), 0) + ' на ' + si(fpk, 'Гц')]);
+    if (r.clipped) ro.push(['Выход', 'насыщение ±14 В']);
+    const notes = {
+      int: 'K = 1/(2πf·R1·C1): на 2 кГц ровно 1. Ниже частоты K растёт без предела, поэтому на низких частотах выход упирается в ±14 В. В LTspice такой схеме нужна .ic, иначе ОУ уходит в насыщение ещё при расчёте рабочей точки.',
+      intp: 'Ниже fср ток идёт через R2, и схема просто усиливает в R2/R1 раз. Выше fср ток идёт через C1, и схема интегрирует. Частоту среза берут в 10 раз ниже рабочей.',
+      dif: 'K = 2πf·R2·C1 растёт с частотой. С реальным ОУ рост упирается в падающую линию fT/f, и на пересечении возникает резонансный пик (в LTspice 864 на 41,7 кГц). Включи «Идеальный ОУ», и пик исчезнет.',
+      difp: 'R1 останавливает рост K на уровне R2/R1 = 100 и гасит резонанс, C2 режет частоты выше 200 кГц. С LT1001 полки 100 нет: усиления ОУ не хватает уже после 12,6 кГц.',
+    };
+    return {
+      v: { K, clipped: r.clipped, fpk },
+      readouts: ro,
+      plots: [
+        { legend: [['--ch1', '|K|, дБ'], ['--ch3', 'фаза, °']], cfg: { x: { min: 10, max: 1e6, log: true, fmt: fHz }, y: { min: Math.max(-80, Math.floor(Math.min(...mag) / 20) * 20), max: Math.min(80, Math.ceil(Math.max(...mag) / 20) * 20 + 10), fmt: v => fmt(v, 0) }, y2: { min: -270, max: 180, ticks: [-270, -180, -90, 0, 90, 180], fmt: v => v + '°' },
+          series: [{ x: fs, y: mag, color: css('--ch1') }, { x: fs, y: pha, color: css('--ch3'), dash: [6, 4], w: 1.5, y2: true }],
+          vlines: [{ x: s.f, color: css('--ch2'), dash: [], w: 1.5 }], xlabel: 'Гц' } },
+        { legend: [['--ch1', 'V(in)'], ['--ch2', 'V(out)']], cfg: { x: { min: 0, max: r.t[r.t.length - 1], fmt: v => fmt(v, 2) }, y: (() => { const m = Math.max(...r.vin.map(Math.abs), ...r.vout.map(Math.abs)) * 1.1 || 1; return { min: -m, max: m, fmt: v => fmt(v, 2) }; })(),
+          series: [{ x: r.t, y: r.vin, color: css('--ch1') }, { x: r.t, y: r.vout, color: css('--ch2') }], xlabel: 'мс' } },
+      ],
+      note: notes[s.c],
+    };
+  },
+  missions: [
+    { id: 'r2', text: 'Практический интегратор: подбери R2 так, чтобы частота среза стала 200 Гц.', check: s => s.c === 'intp' && Math.abs(s.R2 - 1e6) / 1e6 < 0.04, after: 'R2 = Xc на 200 Гц = 1 МОм.' },
+    { id: 'sat', text: 'Идеальный интегратор, синус 0,5 В: найди частоту, на которой выход упирается в ±14 В.', check: (s, v) => s.c === 'int' && s.wave === 'sine' && v.clipped, after: 'K = 2000/f, при входе 0,5 В насыщение ниже примерно 70 Гц.' },
+    { id: 'peak', text: 'Идеальный дифференциатор с LT1001: поставь частоту прямо на резонансный пик.', check: (s, v) => s.c === 'dif' && s.ideal === 'lt' && Math.abs(Math.log(s.f / v.fpk)) < 0.08, after: 'Пик около 41 кГц, там растущий K встречает линию fT/f.' },
+  ],
+};
+
+// ---------- ЛР3: компараторы ----------
+function opStep(y, vd, dt) {
+  const wp = 2 * Math.PI * OA.fT / OA.A0;
+  let y1 = (y + dt * wp * OA.A0 * vd) / (1 + dt * wp);
+  y1 = clamp(y1, y - OA.SR * dt, y + OA.SR * dt);
+  return clamp(y1, -OA.Usat, OA.Usat);
+}
+function wave(kind, t, P, lo, hi) {
+  const ph = (t / P) % 1;
+  if (kind === 'sine') return (lo + hi) / 2 + (hi - lo) / 2 * Math.sin(2 * Math.PI * ph);
+  return ph < 0.5 ? lo + (hi - lo) * 2 * ph : hi - (hi - lo) * 2 * (ph - 0.5);
+}
+const LR3C = {
+  zero: 'Нуль-компаратор', one: 'Одновходовый', two: 'Двухвходовый', hys: 'С гистерезисом', sch: 'Триггер Шмитта', win: 'Оконный',
+};
+function lr3Model(s) {
+  // возвращает функцию: (vin, y[]) -> {vd: [...], out}
+  const Us = OA.Usat;
+  if (s.c === 'zero') return { n: 1, vd: (x) => [-x], out: y => y[0], thr: 'порог 0 В' };
+  if (s.c === 'one') { const thr = -s.Uop * 100 / s.R2; return { n: 1, vd: x => [-((x / 100 + s.Uop / s.R2) / (1 / 100 + 1 / s.R2))], out: y => y[0], thr: 'порог ' + fmt(thr, 2) + ' В', thrv: [thr] }; }
+  if (s.c === 'two') return { n: 1, vd: x => [s.Uop - x], out: y => y[0], thr: 'порог ' + fmt(s.Uop, 2) + ' В', thrv: [s.Uop] };
+  if (s.c === 'hys') {
+    const R1 = s.R1h, R2 = 10e3, k = R1 / (R1 + R2), b = s.Uop * R2 / (R1 + R2);
+    return { n: 1, vd: (x, y) => [b + y[0] * k - x], out: y => y[0], thr: 'пороги ' + fmt(b + Us * k, 2) + ' / ' + fmt(b - Us * k, 2) + ' В', thrv: [b + Us * k, b - Us * k] };
+  }
+  if (s.c === 'sch') {
+    const hi = 15 * 7 / 15, lo = s.fault === 'short' ? 15 * 2.8 / 10.8 : 0.1 + 14.9 * 2.8 / 10.8;
+    const thrOf = y => s.fault === 'open' ? hi : s.fault === 'short' ? lo : (y > 0.7 ? lo : hi);
+    return { n: 1, vd: (x, y) => [x - thrOf(y[0])], out: y => y[0] >= 4.6 ? 4.6 : y[0] <= -0.77 ? -0.77 : y[0],
+      thr: s.fault === 'ok' ? 'пороги 7,00 / 3,96 В' : 'один порог ' + fmt(thrOf(s.fault === 'open' ? -14 : 14), 2) + ' В', thrv: s.fault === 'ok' ? [hi, lo] : [thrOf(s.fault === 'open' ? -14 : 14)] };
+  }
+  const sum = 1500 + s.R2w + 700, H = s.Vop * (s.R2w + 700) / sum, L = s.Vop * 700 / sum;
+  return { n: 2, vd: x => [x - H, L - x], out: y => Math.max(0, y[0] - 0.7, y[1] - 0.7), thr: 'окно ' + fmt(L, 2) + '…' + fmt(H, 2) + ' В', thrv: [L, H], H, L };
+}
+const LR3 = {
+  init: { c: 'hys', wave: 'tri', amp: 10, f: 100, Uop: -3, R2: 100, R1h: 1670, fault: 'ok', Vop: 12, R2w: 200 },
+  controls: s => {
+    const c = [{ type: 'seg', key: 'c', label: 'Схема', opts: Object.entries(LR3C) },
+      { type: 'seg', key: 'wave', label: 'Сигнал', opts: [['tri', 'Треугольник'], ['sine', 'Синус']] },
+      { type: 'range', key: 'amp', label: 'Амплитуда входа', min: 0.0005, max: 12, log: true, show: v => si(v, 'В') },
+      { type: 'range', key: 'f', label: 'Частота', min: 10, max: 20e3, log: true, show: v => si(v, 'Гц') }];
+    if (s.c === 'one') c.push({ type: 'range', key: 'Uop', label: 'Uоп', min: -12, max: 12, step: 0.5, show: v => fmt(v, 1) + ' В' }, { type: 'range', key: 'R2', label: 'R2 (R1 = 100 Ом)', min: 25, max: 400, step: 5, show: v => fmt(v, 0) + ' Ом' });
+    if (s.c === 'two' || s.c === 'hys') c.push({ type: 'range', key: 'Uop', label: 'Uоп', min: -8, max: 8, step: 0.5, show: v => fmt(v, 1) + ' В' });
+    if (s.c === 'hys') c.push({ type: 'range', key: 'R1h', label: 'R1 (R2 = 10 кОм)', min: 200, max: 10e3, log: true, show: v => si(v, 'Ом') });
+    if (s.c === 'sch') c.push({ type: 'seg', key: 'fault', label: 'Транзистор VT1', opts: [['ok', 'Исправен'], ['open', 'Обрыв'], ['short', 'Короткое']] });
+    if (s.c === 'win') c.push({ type: 'range', key: 'Vop', label: 'Vop (опорное)', min: 6, max: 15, step: 0.5, show: v => fmt(v, 1) + ' В' }, { type: 'range', key: 'R2w', label: 'R2 (ширина окна)', min: 0, max: 600, step: 10, show: v => fmt(v, 0) + ' Ом' });
+    return c;
+  },
+  view(s) {
+    const m = lr3Model(s);
+    const lo = s.c === 'win' ? 0 : -s.amp, hi = s.amp;
+    const P = 1 / s.f, T = 2 * P, steps = 8000, dt = T / steps;
+    const sub = Math.max(1, Math.ceil(dt / 1e-6));
+    // старт из рабочей точки, как в LTspice; нуль-компаратор сразу в установившемся линейном режиме
+    const y = [0, 0];
+    if (s.c === 'zero' && s.wave === 'sine' && s.amp * cabs(Aol(s.f)) < OA.Usat) {
+      const a = Aol(s.f);
+      y[0] = -s.amp * cabs(a) * Math.sin(carg(a));
+    }
+    const t = [], vin = [], vout = [];
+    let tt = 0;
+    for (let i = 0; i <= steps; i++) {
+      for (let k = 0; k < sub; k++) {
+        const x = wave(s.wave, tt, P, lo, hi), vd = m.vd(x, y);
+        for (let j = 0; j < m.n; j++) y[j] = opStep(y[j], vd[j], dt / sub);
+        tt += dt / sub;
+      }
+      if (i % 4 === 0) { t.push(tt * 1e3); vin.push(wave(s.wave, tt, P, lo, hi)); vout.push(m.out(y)); }
+    }
+    // статическая характеристика: развёртка вверх и вниз
+    const xr = s.c === 'zero' ? 0.05 : 12, xs = [], up = [], dn = [];
+    const stat = (x, yy) => { for (let k = 0; k < 6; k++) { const vd = m.vd(x, yy); for (let j = 0; j < m.n; j++) yy[j] = clamp(vd[j] * 1e6, -OA.Usat, OA.Usat); } return m.out(yy); };
+    let yu = [-14.05, -14.05], yd = [14.05, 14.05];
+    if (s.c === 'win') { yu = [-14.05, 14.05]; yd = [14.05, -14.05]; }
+    for (let i = 0; i <= 600; i++) xs.push(-xr + 2 * xr * i / 600);
+    xs.forEach(x => up.push(stat(x, yu)));
+    for (let i = xs.length - 1; i >= 0; i--) dn[i] = stat(xs[i], yd);
+    const vmax = Math.max(...vout), vmin = Math.min(...vout);
+    const switched = vmax - vmin > 5;
+    const ro = [['Расчёт', m.thr], ['Выход max / min', fmt(vmax, 2) + ' / ' + fmt(vmin, 2) + ' В'], ['Переключается?', switched ? 'да' : 'нет']];
+    if (s.c === 'zero') ro.push(['A(f) = fT/f', fmt(OA.fT / s.f, 0)]);
+    const notes = {
+      zero: 'Без обратной связи ОУ усиливает в A(f) = fT/f раз. На 500 Гц это около 1700, поэтому вход 1 мВ даёт синус 1,7 В, а для насыщения нужно больше 8 мВ. На высоких частотах выход не успевает: скорость нарастания 0,25 В/мкс, переход 28 В длится 112 мкс.',
+      one: 'Uвх и Uоп складываются токами на одном входе: Uпор = −Uоп·R1/R2. Выход отрицательный, когда вход выше порога (сигнал на минусе).',
+      two: 'Входы разные: ОУ сравнивает Uвх с Uоп напрямую, порог равен Uоп.',
+      hys: 'R2 от выхода на плюс - положительная обратная связь. После переключения порог отскакивает от входа на ширину петли, и шум меньше этой ширины не вызывает дребезга.',
+      sch: 'Высокий выход открывает VT1, тот закорачивает R3, и порог на минусе падает с 7 до 3,96 В. Сломай транзистор и посмотри, что останется от гистерезиса.',
+      win: 'U1 тревожит выше H, U2 ниже L, диоды складывают их по «ИЛИ», R4 тянет выход к нулю внутри окна. Пороги = ток делителя × сопротивление ниже точки.',
+    };
+    return {
+      v: { switched, thrv: m.thrv, H: m.H, L: m.L, vmax, vmin },
+      readouts: ro,
+      plots: [
+        { legend: [['--ch1', 'V(in)'], ['--ch2', 'V(out)']], cfg: { x: { min: 0, max: t[t.length - 1], fmt: v => fmt(v, 2) }, y: (() => { const a = Math.max(15, s.amp * 1.1); return { min: -a, max: a, fmt: v => fmt(v, 0) }; })(),
+          series: [{ x: t, y: vin, color: css('--ch1') }, { x: t, y: vout, color: css('--ch2') }], hlines: (m.thrv || []).map(v => ({ y: v, color: css('--muted') })), xlabel: 'мс' } },
+        { legend: [['--ch2', 'вход растёт'], ['--ch3', 'вход падает']], cfg: { x: { min: -xr, max: xr, fmt: v => fmt(v, 2) }, y: { min: -16, max: 16, fmt: v => fmt(v, 0) },
+          series: [{ x: xs, y: up, color: css('--ch2'), w: 3 }, { x: xs, y: dn, color: css('--ch3'), dash: [6, 4] }], xlabel: 'Uвх, В' } },
+      ],
+      note: notes[s.c],
+    };
+  },
+  missions: [
+    { id: 'thr4', text: 'Одновходовый, Uоп = −8 В: подбери R2, чтобы порог стал 4 В.', check: (s, v) => s.c === 'one' && v.thrv && Math.abs(v.thrv[0] - 4) < 0.05, after: 'Uпор = −Uоп·R1/R2 → R2 = 200 Ом.' },
+    { id: 'quiet', text: 'Компаратор с гистерезисом: подай синус, который пересекает верхний порог, но не дотягивается до нижнего. Выход не должен переключаться.', check: (s, v) => s.c === 'hys' && s.wave === 'sine' && !v.switched && s.amp > 0.7, after: 'Чтобы переключиться обратно, вход должен пройти всю петлю.' },
+    { id: 'break', text: 'Триггер Шмитта: сломай транзистор так, чтобы остался один порог 7 В.', check: s => s.c === 'sch' && s.fault === 'open' },
+    { id: 'shut', text: 'Оконный: схлопни окно в одну точку.', check: s => s.c === 'win' && s.R2w === 0, after: 'H = L = 3,82 В: выход всегда в тревоге, кроме узких иголок на пересечении.' },
+  ],
+};
+
+// ---------- ЛР4: ограничители ----------
+const VT = 0.02585, DI = { Is: 2.52e-9, n: 1.752 };
+const Id = v => DI.Is * (Math.exp(Math.min(v / (DI.n * VT), 80)) - 1);
+const Vd = i => DI.n * VT * Math.log(1 + i / DI.Is);
+// стабилитрон BZX84C10L в пробое (подогнано к 10,43 В при 1,65 мА с прямым диодом)
+const Vz = i => 9.09 + 0.1 * Math.log(1 + i / 1e-6);
+function invertV(Vf, v) { // ток элемента по напряжению, Vf(I) монотонна
+  if (v <= Vf(0)) return 0;
+  let a = 0, b = 10;
+  for (let k = 0; k < 80; k++) { const m = (a + b) / 2; if (Vf(m) > v) b = m; else a = m; }
+  return (a + b) / 2;
+}
+const LR4C = {
+  one: { name: '1 диод', G: U => Id(U), roc: true },
+  two: { name: '2 диода', G: U => -invertV(i => 2 * Vd(i), -U), roc: true },
+  zen: { name: 'Встречные стабилитроны', G: U => Math.sign(U) * invertV(i => Vd(i) + Vz(i), Math.abs(U)), roc: true },
+  gus: { name: 'Схема Гусева', G: U => Math.sign(U) * invertV(i => 10.16 + 2 * Vd(i), Math.abs(U)), roc: true },
+  gus0: { name: 'Гусев без Rос', G: U => Math.sign(U) * invertV(i => 10.16 + 2 * Vd(i), Math.abs(U)), roc: false },
+};
+function lr4Out(s, vin) {
+  const c = LR4C[s.c], R1 = 10e3, R2 = s.K * R1;
+  const F = U => vin / R1 + (c.roc ? U / R2 : 0) + c.G(U);
+  let a = -OA.Usat, b = OA.Usat;
+  if (F(a) > 0) return a; if (F(b) < 0) return b;
+  for (let k = 0; k < 60; k++) { const m = (a + b) / 2; if (F(m) > 0) b = m; else a = m; }
+  return (a + b) / 2;
+}
+const LR4 = {
+  init: { c: 'zen', K: 5, amp: 16.5, wave: 'tri' },
+  controls: () => [
+    { type: 'seg', key: 'c', label: 'Элемент в обратной связи', opts: Object.entries(LR4C).map(([k, v]) => [k, v.name]) },
+    { type: 'range', key: 'K', label: 'K = R2/R1 (R1 = 10 кОм)', min: 1, max: 20, step: 0.1, show: v => fmt(v, 1) },
+    { type: 'range', key: 'amp', label: 'Амплитуда входа', min: 0.2, max: 16.5, step: 0.1, show: v => fmt(v, 1) + ' В' },
+    { type: 'seg', key: 'wave', label: 'Сигнал', opts: [['tri', 'Треугольник'], ['sine', 'Синус']] },
+  ],
+  view(s) {
+    const xs = [], ys = [];
+    for (let i = 0; i <= 220; i++) { const x = -16.5 + 33 * i / 220; xs.push(x); ys.push(lr4Out(s, x)); }
+    const t = [], vi = [], vo = [];
+    for (let i = 0; i <= 240; i++) { const tt = 20 * i / 240, x = wave(s.wave, tt, 10, -s.amp, s.amp); t.push(tt); vi.push(x); vo.push(lr4Out(s, x)); }
+    const top = lr4Out(s, -16.5), bot = lr4Out(s, 16.5);
+    const lim = Math.min(Math.abs(top), Math.abs(bot));
+    const knee = LR4C[s.c].roc ? lim / s.K : 0;
+    const notes = {
+      one: 'Диод анодом к выходу открывается при положительном выходе и держит его около 0,6 В. Другая полуволна идёт до насыщения ОУ −14 В.',
+      two: 'Два диода последовательно и в другую сторону: ограничен отрицательный выход на −1,2 В, положительный уходит в насыщение.',
+      zen: 'В каждую сторону один стабилитрон пробит, второй открыт прямо: 10 + 0,6 В. В LTspice 10,43 В, потому что ток 1,65 мА меньше 5 мА, при которых указаны 10 В.',
+      gus: 'Стабилитрон в мосту уже в пробое, поэтому излом резкий. Уровень Uz + 2Ud ≈ 11,2 В (LTspice 11,37 В) одним стабилитроном в обе стороны.',
+      gus0: 'Без Rос в линейном режиме нет отрицательной обратной связи. ОУ усиливает в полную силу, и схема становится компаратором с уровнями ±11,4 В.',
+    };
+    return {
+      v: { knee, lim },
+      readouts: [['Уровень сверху / снизу', fmt(top, 2) + ' / ' + fmt(bot, 2) + ' В'], ['Излом при |Uвх|', LR4C[s.c].roc ? '≈ ' + fmt(knee, 2) + ' В' : 'около 0'], ['Наклон на линейном участке', LR4C[s.c].roc ? '−' + fmt(s.K, 1) : '∞']],
+      plots: [
+        { legend: [['--ch2', 'Uвых(Uвх)'], ['--muted', '−K·Uвх']], cfg: { x: { min: -16.5, max: 16.5, fmt: v => fmt(v, 0) }, y: { min: -16, max: 16, fmt: v => fmt(v, 0) },
+          series: [{ x: [-16.5, 16.5], y: [16.5 * s.K, -16.5 * s.K], color: css('--muted'), dash: [4, 4], w: 1 }, { x: xs, y: ys, color: css('--ch2'), w: 3 }], xlabel: 'Uвх, В' } },
+        { legend: [['--ch1', 'V(in)'], ['--ch2', 'V(out)']], cfg: { x: { min: 0, max: 20, fmt: v => fmt(v, 0) }, y: { min: -17, max: 17, fmt: v => fmt(v, 0) },
+          series: [{ x: t, y: vi, color: css('--ch1') }, { x: t, y: vo, color: css('--ch2') }], xlabel: 'мс' } },
+      ],
+      note: notes[s.c] + ' Уровень ограничения задаёт элемент, K определяет только, при каком входе он наступит.',
+    };
+  },
+  missions: [
+    { id: 'k1v', text: 'Схема Гусева: подбери K так, чтобы ограничение начиналось при входе около 1 В.', check: (s, v) => s.c === 'gus' && Math.abs(v.knee - 1) < 0.06, after: 'K ≈ 11,4: уровень тот же, излом сдвинулся.' },
+    { id: 'cmp', text: 'Преврати ограничитель в компаратор, не трогая стабилитрон.', check: s => s.c === 'gus0' },
+    { id: 'nolim', text: 'Встречные стабилитроны: подбери амплитуду, при которой ограничение ещё не наступает.', check: (s, v) => s.c === 'zen' && s.amp * s.K < v.lim * 0.97 },
+  ],
+};
+
+// ---------- ЛР5: активные фильтры ----------
+const LR5C = {
+  lpf: { name: 'ФНЧ 1-го пор.', net: k => ({ nodes: ['m', 'o'], op: { o: 'o', p: 'gnd', m: 'm' }, el: [['R', 'in', 'm', 636.6], ['R', 'm', 'o', 3180], ['C', 'm', 'o', 10e-9 * k]] }), amp: 1 },
+  hpf1: { name: 'ФВЧ 1-го пор.', net: k => ({ nodes: ['p', 'm', 'o'], op: { o: 'o', p: 'p', m: 'm' }, el: [['C', 'in', 'p', 10e-9 * k], ['R', 'p', 'gnd', 2650], ['R', 'm', 'gnd', 1000], ['R', 'm', 'o', 5000]] }), amp: 0.1 },
+  hpf2: { name: 'ФВЧ 2-го пор.', net: k => ({ nodes: ['a', 'm', 'o'], op: { o: 'o', p: 'gnd', m: 'm' }, el: [['C', 'in', 'a', 440.6e-9 * k], ['R', 'a', 'gnd', 99.47], ['C', 'a', 'o', 146.9e-9 * k], ['C', 'a', 'm', 587.5e-9 * k], ['R', 'm', 'o', 530.5]] }), amp: 1 },
+  bp: { name: 'Полосовой', net: k => ({ nodes: ['a', 'm', 'o'], op: { o: 'o', p: 'gnd', m: 'm' }, el: [['R', 'in', 'a', 110.5], ['R', 'a', 'gnd', 471.2], ['C', 'a', 'o', 10e-9 * k], ['C', 'a', 'm', 10e-9 * k], ['R', 'm', 'o', 1770]] }), amp: 0.1 },
+  notch: { name: 'Режекторный', net: k => ({ nodes: ['a', 'b', 'p', 'o'], op: { o: 'o', p: 'p', m: 'o' }, el: [['R', 'in', 'a', 397.9], ['R', 'a', 'p', 397.9], ['C', 'a', 'gnd', 20e-9 * k], ['C', 'in', 'b', 10e-9 * k], ['C', 'b', 'p', 10e-9 * k], ['R', 'b', 'o', 198.9]] }), amp: 0.1 },
+};
+const LR5 = {
+  init: { c: 'lpf', f: 5000, k: 1, ideal: 'lt' },
+  controls: () => [
+    { type: 'seg', key: 'c', label: 'Фильтр', opts: Object.entries(LR5C).map(([k, v]) => [k, v.name]) },
+    { type: 'range', key: 'f', label: 'Частота синуса', min: 100, max: 1e6, log: true, show: v => si(v, 'Гц') },
+    { type: 'range', key: 'k', label: 'Масштаб всех ёмкостей', min: 0.25, max: 4, log: true, show: v => '×' + fmt(v, 2) },
+    { type: 'seg', key: 'ideal', label: 'Операционный усилитель', opts: [['lt', 'LT1001'], ['id', 'Идеальный']] },
+  ],
+  view(s) {
+    const c = LR5C[s.c], net = c.net(s.k), id = s.ideal === 'id';
+    const fs = logspace(100, 1e6, 500);
+    const Hs = fs.map(f => nodal(f, net, id));
+    const mag = Hs.map(h => db(cabs(h))), pha = Hs.map(h => carg(h) * 180 / Math.PI);
+    const h0 = nodal(s.f, net, id), K = cabs(h0);
+    const fn = f => db(cabs(nodal(f, net, id)));
+    const [fmx, mx] = refine(fs, mag, fn, 1), [fmn, mn] = refine(fs, mag, fn, -1);
+    // границы по −3 дБ
+    const ref = s.c === 'notch' ? mag[0] : mx, edges = [];
+    for (let i = 1; i < fs.length; i++) if ((mag[i - 1] - (ref - 3)) * (mag[i] - (ref - 3)) < 0) edges.push(fs[i]);
+    const ro = [['|K| на ' + si(s.f, 'Гц'), fmt(K, 3) + ' (' + fmt(db(K), 1) + ' дБ)'], ['Фаза', fmt(carg(h0) * 180 / Math.PI, 0) + '°']];
+    if (s.c === 'notch') ro.push(['Провал', fmt(mn, 1) + ' дБ на ' + si(fmn, 'Гц')]);
+    else ro.push(['Максимум', fmt(Math.pow(10, mx / 20), 2) + ' на ' + si(fmx, 'Гц')]);
+    ro.push(['Уровень −3 дБ на', edges.length ? edges.map(e => si(e, 'Гц', 2)).join(', ') : 'нет в диапазоне']);
+    const t = [], vi = [], vo = [];
+    for (let i = 0; i <= 300; i++) { const w = 2 * Math.PI * 3 * i / 300; t.push(3 * i / 300 / s.f * 1e3); vi.push(c.amp * Math.sin(w)); vo.push(c.amp * K * Math.sin(w + carg(h0))); }
+    const notes = {
+      lpf: 'Инвертирующий усилитель, в обратной связи R2 ∥ C1. Ниже fср = 1/(2πR2C1) = 5 кГц K = R2/R1 = 5, выше спад −20 дБ/дек. LTspice: 4,86 кГц.',
+      hpf1: 'Пассивная RC-цепь на входе и неинвертирующий усилитель с K = 6. С LT1001 сверху его режет полоса fT/6 ≈ 140 кГц, и ФВЧ становится полосовым (LTspice: максимум 5,79 на 32 кГц).',
+      hpf2: 'Два конденсатора дают +40 дБ/дек ниже среза. Q = 0,577 (Бессель), подъёма у среза нет. В LTspice выше 50 кГц был ещё подъём до 10,5 на 95 кГц от запаздывания LT1001; упрощённая модель ОУ на стенде его не показывает.',
+      bp: 'Расчёт: f0 = 40 кГц, K0 = 8. На 40 кГц у LT1001 усиление всего около 20, и его запаздывание сдвигает центр вниз, к 36 кГц.',
+      notch: 'Двойной Т-мост: на f0 = 1/(2πRC) = 40 кГц сигналы двух путей гасят друг друга. В LTspice полного нуля нет: R3 подключён к выходу ОУ, LT1001 немного сдвигает фазу, и провал −48 дБ на 39,85 кГц. Упрощённая модель ОУ на стенде сдвигает фазу меньше, поэтому её провал глубже и уже.',
+    };
+    return {
+      v: { K, mx, fmx, edges, mn },
+      readouts: ro,
+      plots: [
+        { legend: [['--ch1', '|K|, дБ'], ['--ch3', 'фаза, °'], ['--ch2', 'частота синуса']], cfg: { x: { min: 100, max: 1e6, log: true, fmt: fHz }, y: { min: Math.max(-80, Math.floor(Math.min(...mag) / 20) * 20), max: Math.ceil(mx / 10) * 10 + 10, fmt: v => fmt(v, 0) }, y2: { min: -360, max: 360, ticks: [-360, -180, 0, 180, 360], fmt: v => v + '°' },
+          series: [{ x: fs, y: mag, color: css('--ch1') }, { x: fs, y: pha, color: css('--ch3'), dash: [6, 4], w: 1.5, y2: true }],
+          hlines: [{ y: ref - 3, color: css('--ch3') }], vlines: [{ x: s.f, color: css('--ch2'), dash: [], w: 1.5 }], xlabel: 'Гц' } },
+        { legend: [['--ch1', 'V(in)'], ['--ch2', 'V(out)']], cfg: { x: { min: 0, max: t[t.length - 1], fmt: v => fmt(v, 3) }, y: (() => { const a = Math.max(c.amp, c.amp * K) * 1.15; return { min: -a, max: a, fmt: v => fmt(v, 2) }; })(),
+          series: [{ x: t, y: vi, color: css('--ch1') }, { x: t, y: vo, color: css('--ch2') }], xlabel: 'мс' } },
+      ],
+      note: notes[s.c],
+    };
+  },
+  missions: [
+    { id: 'half', text: 'ФНЧ: сдвинь частоту среза в 2 раза ниже, до 2,5 кГц.', check: (s, v) => s.c === 'lpf' && v.edges.length && Math.abs(v.edges[0] / 2430 - 1) < 0.06, after: 'fср ∝ 1/C: ёмкость ×2 даёт частоту /2.' },
+    { id: 'k6', text: 'ФВЧ 1-го порядка: найди режим, при котором на высоких частотах K = 6 без спада.', check: s => s.c === 'hpf1' && s.ideal === 'id', after: 'Только с идеальным ОУ. Спад сверху даёт полоса LT1001.' },
+    { id: 'notch40', text: 'Режекторный: поставь синус точно в провал.', check: (s, v) => s.c === 'notch' && db(v.K) < -30 },
+  ],
+};
+
+// ---------- ЛР6: стабилизаторы ----------
+function bisect(F, a, b, n = 70) { let fa = F(a); for (let k = 0; k < n; k++) { const m = (a + b) / 2, fm = F(m); if ((fm > 0) === (fa > 0)) { a = m; fa = fm; } else b = m; } return (a + b) / 2; }
+const Iz6 = (U, vz) => U > vz ? (U - vz) / 0.3 : 0;
+function lr6(c, Uin, Rn) {
+  if (c === 'p') {
+    const U = bisect(U => (Uin - U) / 400 - U / Rn - Iz6(U, 6), 0, Uin);
+    const I1 = (Uin - U) / 400;
+    return { U, In: U / Rn, Iz: Iz6(U, 6), extra: [['Ток через R1', si(I1, 'А')], ['Мощность R1', si(I1 * I1 * 400, 'Вт')]] };
+  }
+  if (c === 'f') {
+    const vbe = Ie => Ie > 1e-4 ? 0.455 + 0.04 * Math.log(Ie / 0.504) : 0.455 + 0.04 * Math.log(1e-4 / 0.504);
+    const outOf = Vb => { const U = bisect(U => U - (Vb - vbe(U / Rn)), 0, Math.max(0, Vb)); return Math.min(U, Uin - 0.3); };
+    const Vb = bisect(Vb => (Uin - Vb) / 330 - outOf(Vb) / Rn / 51 - Iz6(Vb, 6.5), 0, Uin);
+    const U = outOf(Vb), In = U / Rn;
+    return { U, In, Iz: Iz6(Vb, 6.5), extra: [['Ток базы', si(In / 51, 'А')], ['Мощность Q1', si((Uin - U) * In, 'Вт')]] };
+  }
+  // компенсационный: поведенческая модель по точкам LTspice
+  let U = 5.93;
+  for (let k = 0; k < 30; k++) {
+    const I = U / Rn;
+    let u = 5.9319 + 0.0004 * (Uin - 12) - 0.023 * (I - 1.98);
+    u = softmin(u, Uin - 2.1, 0.2);
+    u = softmin(u, 3.0 * Rn, 0.15);
+    U = Math.max(0, u);
+  }
+  return { U, In: U / Rn, Iz: null, extra: [['Мощность Q3', si((Uin - U) * U / Rn, 'Вт')]] };
+}
+const LR6C = { p: ['Параметрический', 600, 100, 3000], f: ['С повторителем', 12, 3, 60], c: ['Компенсационный', 3, 1, 12] };
+const LR6 = {
+  init: { c: 'p', Uin: 12, Rp: 600, Rf: 12, Rc: 3 },
+  controls: s => [
+    { type: 'seg', key: 'c', label: 'Схема', opts: Object.entries(LR6C).map(([k, v]) => [k, v[0]]) },
+    { type: 'range', key: 'Uin', label: 'Uвх', min: 6, max: 16, step: 0.1, show: v => fmt(v, 1) + ' В' },
+    { type: 'range', key: 'R' + s.c, label: 'Сопротивление нагрузки', min: LR6C[s.c][2], max: LR6C[s.c][3], log: true, show: v => si(v, 'Ом') },
+  ],
+  view(s) {
+    const Rn = s['R' + s.c], r = lr6(s.c, s.Uin, Rn);
+    const a = lr6(s.c, 12, Rn), b = lr6(s.c, 14, Rn);
+    const kst = (2 / 12) / (Math.abs(b.U - a.U) / a.U);
+    const nom = lr6(s.c, 12, LR6C[s.c][1]).U;
+    const holds = r.U > nom * 0.99;
+    const ui = [], uo = [];
+    for (let i = 0; i <= 80; i++) { const u = 6 + 10 * i / 80; ui.push(u); uo.push(lr6(s.c, u, Rn).U); }
+    const rs = logspace(LR6C[s.c][2], LR6C[s.c][3], 80), ur = rs.map(R => lr6(s.c, s.Uin, R).U);
+    const ro = [['Uвых', fmt(r.U, 4) + ' В'], ['Ток нагрузки', si(r.In, 'А')], ['Стабилизация', holds ? 'держит' : 'не держит']];
+    if (r.Iz !== null) ro.push(['Ток стабилитрона', si(r.Iz, 'А')]);
+    ro.push(['Kст (12→14 В)', fmt(kst, 0)], ...r.extra);
+    const notes = {
+      p: 'R1 гасит лишнее напряжение, стабилитрон забирает себе ток, который не взяла нагрузка. Весь ток R1 = 15 мА: если нагрузка захочет больше, стабилитрону ничего не останется (граница около 400 Ом).',
+      f: 'Стабилитрон задаёт базу, транзистор отдаёт ток нагрузки. Стабилитрон нагружен только током базы, в β ≈ 50 раз меньшим. Uвых = Uст − Uбэ, поэтому стабилитрон 6,5 В.',
+      c: 'Модель построена по точкам LTspice (Kст ≈ 1240, Rвых 0,023 Ом, предел около 2,9 А). Q1 сравнивает часть выхода с опорой D1, через Q2 управляет силовым Q3 - отрицательная обратная связь.',
+    };
+    return {
+      v: { U: r.U, holds, Rn, nom },
+      readouts: ro,
+      plots: [
+        { legend: [['--ch2', 'Uвых(Uвх)']], cfg: { x: { min: 6, max: 16, fmt: v => fmt(v, 0) }, y: { min: 0, max: 8, fmt: v => fmt(v, 1) }, series: [{ x: ui, y: uo, color: css('--ch2'), w: 3 }], points: [{ x: s.Uin, y: r.U, color: css('--ch1') }], xlabel: 'Uвх, В' } },
+        { legend: [['--ch2', 'Uвых(Rн)']], cfg: { x: { min: LR6C[s.c][2], max: LR6C[s.c][3], log: true, fmt: v => fmt(v, 0) }, y: { min: 0, max: 8, fmt: v => fmt(v, 1) }, series: [{ x: rs, y: ur, color: css('--ch2'), w: 3 }], points: [{ x: Rn, y: r.U, color: css('--ch1') }], hlines: [{ y: nom * 0.99, color: css('--muted') }], xlabel: 'Rн, Ом' } },
+      ],
+      note: notes[s.c],
+    };
+  },
+  missions: [
+    { id: 'edge', text: 'Параметрический: найди наименьшее Rн, при котором выход ещё держится (просадка меньше 1 %).', check: (s, v) => s.c === 'p' && v.holds && v.Rn < 430 && Math.abs(s.Uin - 12) < 0.3, after: 'Около 400 Ом: это ток 15 мА, весь ток R1.' },
+    { id: 'low', text: 'Параметрический: опусти вход так, чтобы стабилизация пропала.', check: (s, v) => s.c === 'p' && v.U < 5.9, after: 'Ниже 10 В стабилитрон не пробит, выход = делитель R1-Rн.' },
+    { id: 'amp3', text: 'Компенсационный: нагрузи его током больше 2,5 А и проверь, что он ещё держит 5,9 В.', check: (s, v) => s.c === 'c' && v.U / v.Rn > 2.5 && v.U > 5.88 },
+  ],
+};
+
+// ---------- ЛР7: DC-DC ----------
+function simBoost(s) {
+  const T = 1 / s.fsw, dt = T / 100, N = Math.round(0.02 / dt), L = s.L, Cc = s.C, Rn = s.Rn;
+  let iL = (s.Uin - 0.4) / Rn, vc = s.Uin - 0.4;
+  const Vf = 0.22, Rl = 0.05, Ron = 0.03;
+  const bins = 400, per = Math.ceil(N / bins);
+  const t = [], v = [], vlo = [], vhi = [], il = [], ilo = [], ihi = [];
+  let bmin = 1e9, bmax = -1e9, imin = 1e9, imax = -1e9, peakV = 0, peakI = 0, sumV = 0, sumI = 0, cnt = 0;
+  const zoom = { t: [], v: [], i: [] };
+  let lastMin = 1e9, lastMax = -1e9;
+  for (let n = 0; n < N; n++) {
+    const tt = n * dt, on = (tt / T) % 1 < s.D;
+    if (on) { iL += dt * (s.Uin - iL * (Rl + Ron)) / L; vc += dt * (-vc / Rn) / Cc; }
+    else if (iL > 0) { iL += dt * (s.Uin - iL * Rl - vc - Vf) / L; if (iL < 0) iL = 0; vc += dt * (iL - vc / Rn) / Cc; }
+    else { vc += dt * (-vc / Rn) / Cc; }
+    bmin = Math.min(bmin, vc); bmax = Math.max(bmax, vc); imin = Math.min(imin, iL); imax = Math.max(imax, iL);
+    peakV = Math.max(peakV, vc); peakI = Math.max(peakI, iL);
+    if (tt > 0.015) { sumV += vc; sumI += iL; cnt++; }
+    if (tt > 0.02 - 3 * T) { if (n % 2 === 0) { zoom.t.push((tt - 0.02 + 3 * T) * 1e6); zoom.v.push(vc); zoom.i.push(iL); } }
+    if (tt > 0.02 - T) { lastMin = Math.min(lastMin, vc); lastMax = Math.max(lastMax, vc); }
+    if (n % per === per - 1) { t.push(tt * 1e3); v.push((bmin + bmax) / 2); vlo.push(bmin); vhi.push(bmax); il.push((imin + imax) / 2); ilo.push(imin); ihi.push(imax); bmin = imin = 1e9; bmax = imax = -1e9; }
+  }
+  const iz = zoom.i, dI = Math.max(...iz.slice(-Math.floor(iz.length / 3))) - Math.min(...iz.slice(-Math.floor(iz.length / 3)));
+  return { t, v, vlo, vhi, il, ilo, ihi, zoom, Uout: sumV / cnt, IL: sumI / cnt, dU: lastMax - lastMin, dI, peakV, peakI };
+}
+function simBuck(s) {
+  const T = 2e-5, dt = T / 100, N = Math.round(0.03 / dt), L = 120e-6, Cc = 100e-6;
+  const Kp = s.Rp2 / 10e3, Ki = 1 / (10e3 * s.Cp), div = (s.Rtop + 1000) / 1000;
+  let iL = 0, vc = 0, xi = 0;
+  const bins = 400, per = Math.ceil(N / bins);
+  const t = [], v = [], il = [], ilo = [], ihi = [], dd = [];
+  let imin = 1e9, imax = -1e9, peakV = 0, peakI = 0, sumV = 0, cnt = 0, Dlast = 0, tset = 0, final = 0;
+  const hist = [];
+  for (let n = 0; n < N; n++) {
+    const tt = n * dt;
+    const err = vc / div - s.Vref;
+    const raw = 2.5 - Kp * err - xi, u = clamp(raw, 0.05, 4.95);
+    // ОУ регулятора в насыщении: виртуальной земли нет, Cp не заряжается
+    if (raw === u || (raw > u) === (err > 0)) xi += dt * Ki * err;
+    const D = clamp((u - 0.37) / 4.19, 0, 0.98);
+    const on = (tt / T) % 1 < D;
+    if (on) iL += dt * (s.Uin - iL * 0.05 - vc) / L;
+    else if (iL > 0) { iL += dt * (-0.4 - iL * 0.02 - vc) / L; if (iL < 0) iL = 0; }
+    vc += dt * (iL - vc / s.Rn) / Cc;
+    imin = Math.min(imin, iL); imax = Math.max(imax, iL); peakV = Math.max(peakV, vc); peakI = Math.max(peakI, iL);
+    if (tt > 0.025) { sumV += vc; cnt++; Dlast = D; }
+    if (n % per === per - 1) { t.push(tt * 1e3); v.push(vc); il.push((imin + imax) / 2); ilo.push(imin); ihi.push(imax); dd.push(D); imin = 1e9; imax = -1e9; }
+  }
+  final = sumV / cnt;
+  for (let i = t.length - 1; i >= 0; i--) if (Math.abs(v[i] - final) > 0.02 * final) { tset = t[i]; break; }
+  return { t, v, il, ilo, ihi, dd, Uout: final, D: Dlast, peakV, peakI, tset };
+}
+const LR7 = {
+  init: { c: 'boost', Uin: 7, D: 0.43, L: 560e-6, C: 47e-6, fsw: 50e3, Rn: 48, Ub: 12, Rnb: 3.5, Rp2: 5.1e3, Cp: 150e-9, Vref: 2, Rtop: 2500 },
+  controls: s => s.c === 'boost' ? [
+    { type: 'seg', key: 'c', label: 'Преобразователь', opts: [['boost', 'Повышающий, без ОС'], ['buck', 'Понижающий, с ОС']] },
+    { type: 'range', key: 'Uin', label: 'Uвх', min: 4, max: 10, step: 0.1, show: v => fmt(v, 1) + ' В' },
+    { type: 'range', key: 'D', label: 'Коэффициент заполнения D', min: 0.1, max: 0.8, step: 0.01, show: v => fmt(v, 2) },
+    { type: 'range', key: 'L', label: 'L', min: 100e-6, max: 2e-3, log: true, show: v => si(v, 'Гн') },
+    { type: 'range', key: 'C', label: 'C', min: 10e-6, max: 220e-6, log: true, show: v => si(v, 'Ф') },
+    { type: 'range', key: 'fsw', label: 'Частота ШИМ', min: 10e3, max: 100e3, log: true, show: v => si(v, 'Гц') },
+    { type: 'range', key: 'Rn', label: 'Rн', min: 24, max: 400, log: true, show: v => si(v, 'Ом') },
+  ] : [
+    { type: 'seg', key: 'c', label: 'Преобразователь', opts: [['boost', 'Повышающий, без ОС'], ['buck', 'Понижающий, с ОС']] },
+    { type: 'range', key: 'Ub', label: 'Uвх', min: 8, max: 15, step: 0.1, show: v => fmt(v, 1) + ' В' },
+    { type: 'range', key: 'Rnb', label: 'Rн', min: 2, max: 30, log: true, show: v => si(v, 'Ом') },
+    { type: 'range', key: 'Rp2', label: 'Rp2 (П: Kp = Rp2/10 кОм)', min: 1e3, max: 30e3, log: true, show: v => si(v, 'Ом') },
+    { type: 'range', key: 'Cp', label: 'Cp (И: Ki = 1/(10 кОм·Cp))', min: 20e-9, max: 600e-9, log: true, show: v => si(v, 'Ф') },
+    { type: 'range', key: 'Vref', label: 'Vref (задание)', min: 1, max: 3.2, step: 0.05, show: v => fmt(v, 2) + ' В' },
+    { type: 'range', key: 'Rtop', label: 'Rtop (Rbot = 1 кОм)', min: 500, max: 4000, step: 50, show: v => si(v, 'Ом') },
+  ],
+  view(s) {
+    if (s.c === 'boost') {
+      const r = simBoost(s);
+      const idealU = s.Uin / (1 - s.D);
+      return {
+        v: { ...r, c: 'boost' },
+        readouts: [['Uвых (среднее)', fmt(r.Uout, 2) + ' В'], ['Идеально Uвх/(1−D)', fmt(idealU, 2) + ' В'], ['Пульсации Uвых', si(r.dU, 'В')], ['Расчёт Iн·D/(fC)', si(r.Uout / s.Rn * s.D / (s.fsw * s.C), 'В')],
+          ['ΔIL', si(r.dI, 'А')], ['Расчёт Uвх·D/(Lf)', si(s.Uin * s.D / (s.L * s.fsw), 'А')], ['Средний IL = Iвх', si(r.IL, 'А')], ['Пуск: пик Uвых / IL', fmt(r.peakV, 1) + ' В / ' + fmt(r.peakI, 2) + ' А']],
+        plots: [
+          { legend: [['--ch2', 'I(L1), полоса - пульсации ШИМ']], cfg: { x: { min: 0, max: 20, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(0.5, r.peakI * 1.1), fmt: v => fmt(v, 2) }, series: [{ x: r.t, y: r.il, color: css('--ch2'), w: 1, band: [r.ilo, r.ihi] }], xlabel: 'мс' } },
+          { legend: [['--ch1', 'V(out)']], cfg: { x: { min: 0, max: 20, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(5, r.peakV * 1.1), fmt: v => fmt(v, 0) }, series: [{ x: r.t, y: r.v, color: css('--ch1'), w: 1.5, band: [r.vlo, r.vhi] }], xlabel: 'мс' } },
+          { legend: [['--ch2', 'I(L1), А'], ['--ch1', 'пульсации V(out), растянуты по высоте']], cfg: { x: { min: 0, max: r.zoom.t[r.zoom.t.length - 1], fmt: v => fmt(v, 0) }, y: { min: Math.min(...r.zoom.i) - 0.05, max: Math.max(...r.zoom.i) + 0.05, fmt: v => fmt(v, 2) },
+            series: [{ x: r.zoom.t, y: r.zoom.i, color: css('--ch2') }, { x: r.zoom.t, y: r.zoom.v.map(x => r.IL + (x - r.Uout) * (r.dU > 0 ? r.dI / r.dU : 1)), color: css('--ch1'), w: 1.5 }], xlabel: 'мкс, последние 3 периода' } },
+        ],
+        note: 'Ключ открыт - катушка копит энергию от входа, нагрузку кормит конденсатор. Ключ закрыт - катушка складывает своё напряжение со входом и через диод отдаёт ток в выход. L влияет на пульсации тока, C на пульсации напряжения, f на обе, а среднее задаёт только D. Модель упрощённая: идеальный ключ, диод 0,22 В.',
+      };
+    }
+    const r = simBuck({ Uin: s.Ub, Rn: s.Rnb, Rp2: s.Rp2, Cp: s.Cp, Vref: s.Vref, Rtop: s.Rtop });
+    const target = s.Vref * (s.Rtop + 1000) / 1000;
+    return {
+      v: { ...r, c: 'buck', target, Ub: s.Ub },
+      readouts: [['Uвых (среднее)', fmt(r.Uout, 3) + ' В'], ['Задание Vref·(1+Rtop/Rbot)', fmt(target, 2) + ' В'], ['D в конце', fmt(r.D, 3)], ['Идеально Uвых/Uвх', fmt(Math.min(1, target / s.Ub), 3)],
+        ['Пуск: пик Uвых', fmt(r.peakV, 1) + ' В'], ['Пуск: пик IL', fmt(r.peakI, 1) + ' А'], ['Установление ±2 %', fmt(r.tset, 1) + ' мс'], ['Ток нагрузки', fmt(r.Uout / s.Rnb, 2) + ' А']],
+      plots: [
+        { legend: [['--ch2', 'I(L1)']], cfg: { x: { min: 0, max: 30, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(2, r.peakI * 1.1), fmt: v => fmt(v, 0) }, series: [{ x: r.t, y: r.il, color: css('--ch2'), w: 1, band: [r.ilo, r.ihi] }], xlabel: 'мс' } },
+        { legend: [['--ch1', 'V(out)'], ['--muted', 'задание']], cfg: { x: { min: 0, max: 30, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(target, r.peakV) * 1.15, fmt: v => fmt(v, 0) }, series: [{ x: r.t, y: r.v, color: css('--ch1') }], hlines: [{ y: target, color: css('--muted') }], xlabel: 'мс' } },
+        { legend: [['--ch3', 'D (заполнение)']], cfg: { x: { min: 0, max: 30, fmt: v => fmt(v, 0) }, y: { min: 0, max: 1, fmt: v => fmt(v, 1) }, series: [{ x: r.t, y: r.dd, color: css('--ch3') }], xlabel: 'мс' } },
+      ],
+      note: 'Выход делится Rtop/Rbot, сравнивается с Vref, ПИ-регулятор меняет заполнение D. И-часть доводит ошибку до нуля, поэтому выход ровно на задании при любом входе и нагрузке. Пуск идёт с пустых конденсаторов: регулятор сразу даёт большое D, отсюда выброс. Модель упрощённая, числа близки к LTspice.',
+    };
+  },
+  missions: [
+    { id: 'b12', text: 'Повышающий: вход 6 В. Подбери D, чтобы выход снова стал 12 В.', check: (s, v) => v.c === 'boost' && Math.abs(s.Uin - 6) < 0.05 && Math.abs(v.Uout - 12) < 0.15, after: 'D ≈ 0,51: без обратной связи это приходится делать вручную.' },
+    { id: 'rip', text: 'Повышающий, основной режим: уменьши пульсации выхода до 20 мВ и меньше.', check: (s, v) => v.c === 'boost' && v.dU < 0.02 && Math.abs(v.Uout - 12) < 0.5, after: 'Больше C или выше частота.' },
+    { id: 'k10', text: 'Понижающий с ОС: опусти вход до 10 В и убедись, что выход остался 7 В.', check: (s, v) => v.c === 'buck' && Math.abs(s.Ub - 10) < 0.15 && Math.abs(v.Uout - 7) < 0.05, after: 'Регулятор сам увеличил D. Без ОС было бы 5,8 В.' },
+  ],
+};
+
+// ---------- ЛР8: источники тока ----------
+const LR8C = {
+  m: { name: 'Зеркало с Rэ', Iset: (E, R1) => 0.985 * (E - 0.72) / (R1 + 10), Rout: 22e3, Vs: 0.2, Re: 10, R1: true },
+  w: { name: 'Зеркало Уилсона', Iset: (E, R1) => 0.995 * (E - 1.6) / (R1 + 5), Rout: 35e3, Vs: 1.0, Re: 5, R1: true },
+  o: { name: 'На ОУ', Iset: () => 0.3 * 57 / 58, Rout: 1e8, Vs: 0.45, Re: 10, R1: false },
+};
+function lr8(c, E, Rn, R1) {
+  const m = LR8C[c], I0 = m.Iset(E, R1) / (1 + Rn / m.Rout), Isat = Math.max(0, (E - m.Vs) / (Rn + m.Re));
+  return softmin(I0, Isat, 0.004 * I0);
+}
+const LR8 = {
+  init: { c: 'm', E: 12, Rn: 50, R1m: 100, R1w: 68 },
+  controls: s => [
+    { type: 'seg', key: 'c', label: 'Источник', opts: Object.entries(LR8C).map(([k, v]) => [k, v.name]) },
+    { type: 'range', key: 'E', label: 'Напряжение питания Eп', min: 6, max: 16, step: 0.1, show: v => fmt(v, 1) + ' В' },
+    { type: 'range', key: 'Rn', label: 'Сопротивление нагрузки', min: 1, max: 300, log: true, show: v => si(v, 'Ом') },
+    ...(LR8C[s.c].R1 ? [{ type: 'range', key: 'R1' + s.c, label: 'Токозадающий R1', min: 40, max: 200, step: 1, show: v => fmt(v, 0) + ' Ом' }] : []),
+  ],
+  view(s) {
+    const R1 = s['R1' + s.c] || 0;
+    const I = lr8(s.c, s.E, s.Rn, R1), U = I * s.Rn;
+    const I2 = lr8(s.c, s.E, s.Rn * 1.05, R1);
+    const work = Math.abs(I2 - I) / I < 0.01;
+    const rs = logspace(1, 300, 120), ir = rs.map(R => lr8(s.c, s.E, R, R1) * 1e3);
+    const es = [], ie = [];
+    for (let i = 0; i <= 50; i++) { const e = 6 + 10 * i / 50; es.push(e); ie.push(lr8(s.c, e, s.Rn, R1) * 1e3); }
+    const notes = {
+      m: 'Опорный ток задаёт R1 от самого питания: I ≈ (Eп − 0,7)/(R1 + Rэ). Зеркало копирует его в нагрузку, но и зависимость от питания тоже копирует. Rэ - местная обратная связь против разброса и нагрева.',
+      w: 'T1 отбирает из узла базы T3 ток, равный выходному, и подстраивает T3. Ошибка от токов баз почти исчезает, Rвых больше. В опорной ветви два перехода по 0,8 В, поэтому 141,7 мА вместо 150.',
+      o: 'ОУ держит на R1 ровно Uоп = 3 В, ток эмиттера 3/10 = 300 мА от питания не зависит. В нагрузку идёт Iк = Iэ·β/(β+1) ≈ 294,8 мА. Запас меньше: на R1 всегда падает 3 В.',
+    };
+    return {
+      v: { I, U, work },
+      readouts: [['Ток нагрузки', fmt(I * 1e3, 1) + ' мА'], ['Напряжение на нагрузке', fmt(U, 2) + ' В'], ['Режим', work ? 'рабочая область' : 'насыщение, ток падает']],
+      plots: [
+        { legend: [['--ch2', 'Iн(Rн), мА']], cfg: { x: { min: 1, max: 300, log: true, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(...ir) * 1.15, fmt: v => fmt(v, 0) }, series: [{ x: rs, y: ir, color: css('--ch2'), w: 3 }], points: [{ x: s.Rn, y: I * 1e3, color: css('--ch1') }], xlabel: 'Rн, Ом' } },
+        { legend: [['--ch1', 'Iн(Eп), мА']], cfg: { x: { min: 6, max: 16, fmt: v => fmt(v, 0) }, y: { min: 0, max: Math.max(...ie) * 1.15, fmt: v => fmt(v, 0) }, series: [{ x: es, y: ie, color: css('--ch1'), w: 3 }], points: [{ x: s.E, y: I * 1e3, color: css('--ch2') }], xlabel: 'Eп, В' } },
+      ],
+      note: notes[s.c],
+    };
+  },
+  missions: [
+    { id: 'sat', text: 'Источник на ОУ: выведи его из рабочей области увеличением нагрузки.', check: (s, v) => s.c === 'o' && !v.work, after: 'Около 30 Ом: на нагрузке не больше 8,9 В, остальное съедают R1 и транзистор.' },
+    { id: 'm14', text: 'Зеркало с Rэ при питании 14 В: подбери R1, чтобы ток снова был 100 мА.', check: (s, v) => s.c === 'm' && Math.abs(s.E - 14) < 0.05 && Math.abs(v.I - 0.1) < 0.0012, after: 'R1 ≈ 121 Ом. Ток зеркала зависит от питания, у ОУ-источника такой проблемы нет.' },
+    { id: 'flat', text: 'Найди источник, у которого ток почти не меняется, если поднять питание до 15 В и выше.', check: (s, v) => s.c === 'o' && s.E >= 15 && v.work, after: 'Опора 3 В не зависит от питания, а ток зеркал при этом вырос бы на 9 мА на вольт.' },
+  ],
+};
+
+// ---------- вопросы ----------
+// type c: варианты [текст, верно?, почему]; type n: число с допуском (rel или abs)
+const Q = {
+lr2: [
+  { id: 'a1', t: 'n', q: 'Идеальный интегратор: R1 = 100 кОм, C1 = 795,8 пФ (K = 1 на 2 кГц). На вход синус 0,5 В на 200 Гц. Амплитуда выхода?', ans: 5, rel: 0.05, unit: 'В', exp: 'K = 1/(2πf·R1·C1). Частота в 10 раз ниже, Xc в 10 раз больше, K = 10. 0,5 × 10 = 5 В, это меньше 14 В, синус чистый.', say: 'K обратно пропорционален частоте: на 200 Гц K = 10, выход 5 В.' },
+  { id: 'a2', t: 'c', q: 'Тот же интегратор, синус 0,5 В на 20 Гц. Что на выходе?', o: [
+    ['Синус 50 В', 0, 'По формуле да, но ОУ при питании ±15 В выдаёт максимум около ±14 В.'],
+    ['Синус, срезанный на ±14 В', 1, 'K = 100, нужно 50 В, а ОУ упирается в насыщение. В эти моменты схема уже не интегрирует.'],
+    ['0,05 В', 0, 'Это для K = 0,1, то есть для 20 кГц. На низкой частоте Xc растёт, и K растёт.'],
+    ['Ноль: конденсатор - разрыв на низкой частоте', 0, 'Частая ловушка. C1 стоит в обратной связи: большое Xc значит, что пропадает обратная связь, а не сигнал. K растёт, а не падает.']],
+    exp: 'Конденсатор в обратной связи: Xc большое → K = Xc/R1 большое. Ток I = Uвх/R1 = 5 мкА течёт всегда, а чтобы протолкнуть его через большое Xc, нужен большой выход.' },
+  { id: 'a3', t: 'c', q: 'Почему идеальный интегратор в LTspice без директивы .ic сразу в насыщении?', o: [
+    ['На постоянном токе C1 - разрыв, обратной связи нет, и смещение ОУ усиливается в полную силу', 1, 'LTspice сначала ищет рабочую точку по постоянному току. Без ОС десятки микровольт смещения × 10⁶ дают больше питания.'],
+    ['Без .ic LTspice не умеет считать синус', 0, 'Умеет. Проблема в рабочей точке, а не в сигнале.'],
+    ['.ic задаёт частоту генератора', 0, '.ic задаёт начальные напряжения: незаряженный конденсатор.'],
+    ['Конденсатор без .ic не заряжается', 0, 'Заряжается, но ОУ уже стоит в насыщении до начала расчёта.']],
+    exp: 'Это то же, что дрейф реального интегратора: постоянная ошибка ОУ интегрируется без предела. Практический интегратор лечится R2 параллельно C1.', say: 'Идеальный интегратор неустойчив по постоянному току: нет ОС по постоянному току, смещение интегрируется, ОУ уходит в насыщение.' },
+  { id: 'a4', t: 'c', q: 'На идеальный интегратор подали прямоугольник 0…1 В вместо ±0,5 В. Что на выходе?', o: [
+    ['Тот же треугольник ±0,79 В', 0, 'У сигнала появилась постоянная составляющая 0,5 В, а интегратор её копит.'],
+    ['Лесенка вниз: наклон при 1 В, полка при 0 В, пока не упрётся в −14 В', 1, 'При 1 В течёт 10 мкА и выход линейно идёт вниз, при 0 В ток ноль и выход стоит. Обратного хода нет.'],
+    ['Прямоугольник', 0, 'Прямоугольник на выходе дал бы дифференциатор с треугольником на входе.'],
+    ['Ноль: конденсатор зарядится и ток прекратится', 0, 'Пока держится виртуальная земля, ток Uвх/R1 не затухает, и конденсатор заряжается без остановки.']],
+    exp: 'Интегратор накапливает постоянную составляющую. За 4-5 периодов выход доходит до −14 В.' },
+  { id: 'a5', t: 'c', q: 'Почему на инвертирующем входе интегратора ±1,2 мВ, а не ноль?', o: [
+    ['Uinv = Uвых/A, а у LT1001 на 2 кГц A = fT/f ≈ 400', 1, '0,5 В / 400 ≈ 1,2 мВ. У идеального ОУ (A = ∞) там был бы ровно ноль.'],
+    ['Это шум моделирования', 0, 'Величина точно совпадает с Uвых/A, это не шум.'],
+    ['Ток смещения на R1', 0, 'Ток смещения - наноамперы, он даёт постоянное смещение, а не синус 2 кГц.'],
+    ['Неправильно подключён плюс ОУ', 0, 'Плюс на земле, всё верно.']], exp: 'Виртуальная земля - это ноль только при бесконечном усилении. Конечное A оставляет на входе Uвых/A.' },
+  { id: 'a6', t: 'n', q: 'Практический интегратор, C1 = 795,8 пФ. Частоту среза нужно 200 Гц. Какое R2, кОм?', ans: 1000, rel: 0.03, unit: 'кОм', exp: 'Частота среза - там, где Xc = R2. На 200 Гц Xc = 1/(2π·200·795,8 пФ) ≈ 1 МОм.' },
+  { id: 'a7', t: 'c', q: 'В практическом интеграторе R2 = 100 кОм вместо 1 МОм. Что на рабочей частоте 2 кГц?', o: [
+    ['Чистый интегратор, K = 1', 0, 'Частота среза сдвинулась до 2 кГц, на ней схема уже не интегрирует.'],
+    ['K = 0,707, фаза 135°: ни интегратор, ни усилитель', 1, 'fср = 1/(2πR2C1) = 2 кГц совпала с рабочей. Токи через R и C равны, но сдвинуты на 90°, сопротивление 100к/√2.'],
+    ['K = 10, инвертор', 0, 'K = R2/R1 = 1, а не 10, и только ниже 2 кГц.'],
+    ['Насыщение', 0, 'K ограничен R2/R1 = 1, насыщаться нечему.']], exp: 'Поэтому fср берут в 10 раз ниже рабочей: на рабочей частоте R2 почти не мешает (K = 0,995).' },
+  { id: 'a8', t: 'c', q: 'Зачем на плюс ОУ практического интегратора R3 = R1∥R2 ≈ 91 кОм?', o: [
+    ['Компенсирует падения напряжения от входных токов смещения', 1, 'Токи смещения текут в оба входа. При равных сопротивлениях на входах падения одинаковые, и ОУ их не замечает.'],
+    ['Убирает напряжение смещения нуля', 0, 'Ловушка: напряжение смещения нуля (Uсм) - другой параметр, R3 его не убирает.'],
+    ['Задаёт частоту среза', 0, 'Частоту среза задают R2 и C1.'],
+    ['Ограничивает ток выхода ОУ', 0, 'В плюс ОУ ток почти не течёт, ограничивать нечего.']], exp: 'Почему R1∥R2: по постоянному току C1 - разрыв, а R1 и R2 своими концами уходят на источник и выход ОУ, у которых сопротивление около нуля. Оба соединяют вход с «землёй».' },
+  { id: 'a9', t: 'c', q: 'Откуда пик K ≈ 864 на 41,7 кГц у идеального дифференциатора?', o: [
+    ['Растущий K схемы упирается в падающее усиление ОУ fT/f, фазы 90° + 90° дают резонанс', 1, 'Пересечение на √(2 кГц · 800 кГц) ≈ 40 кГц. ОУ с R2 ведёт себя как катушка L = R2/(2πfT) ≈ 10 мГн, с C1 получается LC-контур.'],
+    ['Это частота fT = 800 кГц', 0, 'Пик в 20 раз ниже fT. ОУ ограничивает усиление на любой частоте, не только на fT.'],
+    ['Резонируют два конденсатора: C1 и внутренний конденсатор ОУ', 0, 'Внутренний конденсатор делает из «ОУ + R2» эквивалентную катушку, и резонирует уже она с C1.'],
+    ['Ошибка LTspice', 0, 'Это реальное поведение: звон видно и на осциллограммах.']], exp: 'Звон на изломах треугольника - это тот же резонанс, раскачанный каждым изломом.', say: 'На пересечении АЧХ дифференциатора и АЧХ ОУ фазовые сдвиги складываются в 180°, ОУ с R2 эквивалентен индуктивности, с C1 получается LC-контур.' },
+  { id: 'a10', t: 'c', q: 'Что делает R1 = 500 Ом последовательно с C1 в практическом дифференциаторе?', o: [
+    ['Ограничивает K на уровне R2/R1 = 100 и вносит затухание: пик 864 → 90', 1, 'Выше 20 кГц Xc1 < R1, на входе фактически резистор. А в эквивалентном LC-контуре R1 рассеивает энергию колебаний.'],
+    ['Увеличивает K на рабочей частоте', 0, 'На 2 кГц K = 10 задают C1 и R2, R1 там почти не влияет.'],
+    ['Компенсирует токи смещения', 0, 'Это роль резистора на плюсе ОУ.'],
+    ['Срезает низкие частоты', 0, 'Низкие частоты и так режет C1.']], exp: 'C2 = 15,9 пФ параллельно R2 добавляет спад выше 200 кГц, против высокочастотного шума.' },
+  { id: 'a11', t: 'c', q: 'На АЧХ практического дифференциатора после 12,6 кГц спад, а не полка 100. Почему?', o: [
+    ['LT1001 не хватает усиления: на 20 кГц он может дать fT/f ≈ 40, а нужно 101', 1, 'Пересечение требуемого и возможного усиления на √(fT·fmin) ≈ 12,6 кГц. Нужен ОУ с fT от 2 МГц.'],
+    ['Это работает C2', 0, 'C2 начал бы действовать только выше 200 кГц. Спад от ОУ начинается раньше.'],
+    ['Так задумано расчётом', 0, 'Расчёт для идеального ОУ даёт полку 100 от 20 до 200 кГц.'],
+    ['R1 подавил полку', 0, 'R1 как раз создаёт полку R2/R1.']], exp: 'Если спросят «зачем тогда C2»: с быстрым ОУ без него полка 100 тянулась бы до fT, и шум усиливался бы в 100 раз в широкой полосе.' },
+  { id: 'a12', t: 'n', q: 'Инвертирующий усилитель на LT1001 (fT = 800 кГц) с K = 10. До какой частоты (по −3 дБ) он усиливает, кГц?', ans: 80, rel: 0.05, unit: 'кГц', exp: 'Полоса ≈ fT/K = 800/10 = 80 кГц. На 80 кГц K уже 7,07, выше падает −20 дБ/дек.' },
+],
+lr3: [
+  { id: 'b1', t: 'n', q: 'Нуль-компаратор на LT1001, вход синус 1 мВ на 500 Гц. Амплитуда выхода, В (fT = 0,8 МГц)?', ans: 1.6, rel: 0.1, unit: 'В', exp: 'Без ОС усиление A = fT/f = 800 000/500 = 1600. 1 мВ × 1600 = 1,6 В, насыщения нет (в LTspice 1,7 В).' },
+  { id: 'b2', t: 'n', q: 'При A = 1700 какой минимальный вход нужен, чтобы выход дошёл до 14 В, мВ?', ans: 8.2, rel: 0.08, unit: 'мВ', exp: '14 / 1700 ≈ 8 мВ. Поэтому при 1 В выход практически прямоугольный.' },
+  { id: 'b3', t: 'c', q: 'На нуль-компаратор подали синус 1 В на 10 кГц. Что на выходе?', o: [
+    ['Чёткий прямоугольник ±14 В', 0, 'По усилению хватает (A = 80), но выход не успевает: 28 В / 0,25 В/мкс = 112 мкс, а полупериод всего 50 мкс.'],
+    ['Треугольник размахом около 12,5 В, не доходит до ±14 В', 1, 'За 50 мкс выход пробегает 0,25 × 50 = 12,5 В и разворачивается. Это ограничение скорости нарастания.'],
+    ['Усиленный синус 80 мВ', 0, '1 В × 80 = 80 В, усиления хватает с запасом.'],
+    ['Ноль', 0, 'Сигнал проходит, просто выход не успевает добежать до насыщения.']], exp: 'Время переключения = размах / SR. Компаратору нужно и Uвх > 14·f/fT, и полупериод заметно больше 112 мкс.' },
+  { id: 'b4', t: 'n', q: 'Одновходовый компаратор: Uоп = −8 В, R1 = 100 Ом, R2 = 200 Ом. Порог, В?', ans: 4, abs: 0.05, unit: 'В', exp: 'Uпор = −Uоп·R1/R2 = 8·100/200 = 4 В. Компенсирующий резистор тогда R1∥R2 ≈ 67 Ом.' },
+  { id: 'b5', t: 'c', q: 'Двухвходовый компаратор: сигнал на минусе, −3 В на плюсе. Как сделать, чтобы выход был +14 В при входе выше −3 В?', o: [
+    ['Поменять входы: сигнал на плюс, опорное на минус', 1, 'Выход в +Uнас, когда на плюсе больше. Сигнал на плюсе - прямой выход.'],
+    ['Поменять знак опорного на +3 В', 0, 'Тогда сменится порог, а направление останется инверсным.'],
+    ['Добавить резистор обратной связи', 0, 'Это даст гистерезис или усилитель, но не поменяет направление.'],
+    ['Подать питание наоборот', 0, 'ОУ так не работает.']], exp: 'Правило: вход на плюс - срабатывает при превышении порога, на минус - при снижении.' },
+  { id: 'b6', t: 'n', q: 'Компаратор с гистерезисом: R1 = 1,67 кОм, R2 = 10 кОм, Uоп = −3 В, Uнас = 14 В. Верхний порог, В?', ans: -0.57, abs: 0.04, unit: 'В', exp: 'Наложение: U+ = Uоп·R2/(R1+R2) + Uнас·R1/(R1+R2) = −2,571 + 2,003 = −0,57 В. Нижний −4,57 В, петля 4 В. У каждого источника множитель - дальний резистор.' },
+  { id: 'b7', t: 'c', q: 'На компаратор с порогами −0,57 и −4,57 В подали синус 1 В вокруг нуля. Что на выходе?', o: [
+    ['Прямоугольник с двумя переключениями за период', 0, 'Чтобы переключиться обратно, вход должен опуститься до −4,57 В. Синус 1 В туда не достаёт.'],
+    ['Постоянно −14 В, переключений нет', 1, 'Уже при t = 0 вход выше −0,57, выход в −14 В. Обратно нужен вход ниже −4,57.'],
+    ['Синус, усиленный в 14 раз', 0, 'С положительной ОС линейного режима нет.'],
+    ['Дребезг', 0, 'Гистерезис как раз убирает дребезг.']], exp: 'Минимальная амплитуда для переключения больше 4,57 В: синус должен зайти ниже нижнего порога. С запасом берут 5 В.' },
+  { id: 'b8', t: 'c', q: 'Где положительная обратная связь в триггере Шмитта, если на плюс приходит только сигнал?', o: [
+    ['Через транзистор: высокий выход открывает VT1, тот снижает порог на минусе, разность U+ − U− растёт', 1, 'Опустить минус - то же, что поднять плюс. Изменение выхода усиливает само себя.'],
+    ['Её там нет, гистерезис от стабилитрона', 0, 'Стабилитрон только ограничивает выход до 4,7 В для ТТЛ.'],
+    ['Через R4', 0, 'R4 питает стабилитрон и нагрузку.'],
+    ['Через D1', 0, 'D1 защищает переход база-эмиттер.']], exp: 'Обратная связь положительная, если изменение выхода увеличивает разность входов в ту же сторону. Неважно, на какой вход она приходит.' },
+  { id: 'b9', t: 'c', q: 'В триггере Шмитта транзистор сгорел в обрыв. Что станет со схемой?', o: [
+    ['Один порог 7 В, гистерезиса нет, при шуме будет дребезг', 1, 'Транзистор больше не закорачивает R3, делитель всегда полный.'],
+    ['Один порог 3,9 В', 0, 'Это при коротком замыкании транзистора: R3 закорочен всегда.'],
+    ['Выход всегда 0', 0, 'Компаратор работает, просто с одним порогом.'],
+    ['Схема начнёт генерировать', 0, 'Генератору нужен интегратор в петле, как в ЛР7.']], exp: 'Гистерезис существует, только пока транзистор переключается.' },
+  { id: 'b10', t: 'c', q: 'Зачем диод D1 между базой и эмиттером VT1?', o: [
+    ['При −14 В на выходе ОУ держит базу на −0,7 В: переход Б-Э выдерживает обратно только около 6 В', 1, 'Без D1 переход пробился бы: кремний начинает проводить лавиной, в нём появляются дефекты, и h21 необратимо падает. Остальные 13,3 В берёт на себя R_B.'],
+    ['Ограничивает выход до 4,7 В', 0, 'Это делает стабилитрон на выходе.'],
+    ['Ускоряет открывание транзистора', 0, 'D1 при положительном выходе закрыт и не участвует.'],
+    ['Компенсирует ток смещения', 0, 'Ток смещения тут ни при чём.']], exp: 'Ток через R_B течёт всегда около 20 мкА: при плюсе в базу, при минусе через D1.' },
+  { id: 'b11', t: 'c', q: 'Оконный компаратор: зачем R4 = 2 кОм от выхода на землю?', o: [
+    ['Внутри окна оба диода закрыты, и R4 подтягивает выход к нулю', 1, 'Без R4 выход висит в воздухе и держит прежние 13 В на паразитной ёмкости.'],
+    ['Ограничивает ток диодов', 0, 'Ток при высоком уровне 6,6 мА, ОУ его выдерживает, но цель R4 не в этом.'],
+    ['Задаёт ширину окна', 0, 'Окно задаёт R2 в делителе.'],
+    ['Компенсирует токи смещения', 0, 'Нет.']], exp: 'Слишком маленький R4 ОУ не потянет (100 Ом = 133 мА), слишком большой медленно разряжает ёмкость.' },
+  { id: 'b12', t: 'n', q: 'Оконный компаратор: Vop просел до 10 В, R1 = 1,5 кОм, R2 = 200 Ом, R3 = 700 Ом. Верхний порог, В?', ans: 3.75, abs: 0.03, unit: 'В', exp: 'Ток 10/2,4 = 4,17 мА. Верхняя точка H - это всё, что ниже неё: 4,17 × (0,2 + 0,7) = 3,75 В. 6,25 В - это падение на R1, частая ошибка.' },
+],
+lr4: [
+  { id: 'c1', t: 'n', q: 'Ограничитель с K = 5 и уровнем 10,43 В. При каком |Uвх| начинается ограничение, В?', ans: 2.09, rel: 0.04, unit: 'В', exp: 'Выход растёт как 5·Uвх до уровня ограничения: 10,43 / 5 ≈ 2,1 В.' },
+  { id: 'c2', t: 'c', q: 'Почему уровень ограничения не зависит от K?', o: [
+    ['Минус ОУ - виртуальная земля, на элементе в ОС лежит всё Uвых, уровень задаёт сам элемент', 1, 'Элемент открывается при своём напряжении, и это напряжение и есть выход.'],
+    ['Зависит, просто слабо', 0, 'От K зависит только точка излома по входу.'],
+    ['Потому что ОУ в насыщении', 0, 'При ограничении ОУ в линейном режиме, его держит открытый элемент.'],
+    ['Из-за R1', 0, 'R1 задаёт ток через элемент, но не уровень.']], exp: 'K задаёт, при каком входе начнётся ограничение.' },
+  { id: 'c3', t: 'c', q: 'Один диод анодом к выходу, катодом к минусу ОУ. Какая полуволна выхода ограничена?', o: [
+    ['Положительная, на ~0,6 В; отрицательная идёт до −14 В', 1, 'Диод открыт, когда выход выше минуса (виртуальной земли).'],
+    ['Отрицательная на −0,6 В', 0, 'Это для обратного включения диода.'],
+    ['Обе на ±0,6 В', 0, 'Для обеих нужны два встречных диода или стабилитроны.'],
+    ['Никакая', 0, 'Ограничивает, в LTspice +0,61 В.']], exp: 'Направление диода определяет полуволну, число диодов - уровень.' },
+  { id: 'c4', t: 'n', q: 'Два диода последовательно в обратной связи. Модуль уровня ограничения, В?', ans: 1.2, abs: 0.06, unit: 'В', exp: '2 × 0,6 = 1,2 В, в LTspice 1,21 В.' },
+  { id: 'c5', t: 'c', q: 'Встречные стабилитроны 10 В: почему 10,43 В, а не 10,6?', o: [
+    ['Ток стабилитрона всего 1,65 мА, а 10 В указаны при 5 мА', 1, 'Ток через элемент ≈ Uвх/R1 = 16,5/10 кОм. При меньшем токе напряжение пробоя чуть ниже.'],
+    ['Мешает насыщение ОУ', 0, 'До 14 В далеко.'],
+    ['Ошибка расчёта коэффициента', 0, 'K на уровень не влияет.'],
+    ['Диоды открываются при 0,8 В', 0, 'Наоборот, при малом токе прямое падение меньше 0,6.']], exp: 'Реальные диоды и стабилитроны имеют экспоненциальную ВАХ, поэтому и излом плавный.' },
+  { id: 'c6', t: 'c', q: 'Схема Гусева без резистора Rос. Что получится?', o: [
+    ['Компаратор с уровнями ±11,4 В', 1, 'В линейном режиме нет отрицательной ОС, ОУ усиливает в полную силу, а мост держит уровни.'],
+    ['Ограничитель с K = 5', 0, 'K = 5 задаёт как раз Rос.'],
+    ['Выход всё время ноль', 0, 'Нет, выход скачет между ±11,4 В.'],
+    ['Генератор', 0, 'Нет положительной ОС.']], exp: 'Переключение происходит, когда вход проходит через ноль.' },
+  { id: 'c7', t: 'n', q: 'Схема Гусева: Uz = 10 В, прямое падение диода 0,6 В. Уровень ограничения, В?', ans: 11.2, abs: 0.05, unit: 'В', exp: 'Ток идёт через два диода моста и стабилитрон: 10 + 2·0,6 = 11,2 В (LTspice 11,37). Одним стабилитроном в обе стороны.' },
+  { id: 'c8', t: 'c', q: 'Почему у схемы Гусева излом резче, чем у встречных стабилитронов?', o: [
+    ['Стабилитрон в мосту уже в пробое от питания, его ток в момент ограничения почти не меняется', 1, 'Открываются только диоды моста, а стабилитрон держит уже стабильное напряжение.'],
+    ['Там больше K', 0, 'K одинаковый, 5.'],
+    ['Стабилитрон мощнее', 0, 'Тот же BZX84C10L.'],
+    ['Из-за R2, R3 на 10 кОм', 0, 'Они как раз держат стабилитрон в пробое, но излом резкий по другой причине.']], exp: 'R2 = R3 = (2E − Uz)/(2Iz) = 10 кОм при токе 1 мА.' },
+],
+lr5: [
+  { id: 'd1', t: 'n', q: 'ФНЧ: R2 = 3180 Ом параллельно C1 = 10 нФ. Частота среза, кГц?', ans: 5, rel: 0.03, unit: 'кГц', exp: 'fср = 1/(2πR2C1) = 5,0 кГц, там Xc = R2. В LTspice 4,86 кГц.' },
+  { id: 'd2', t: 'c', q: 'ФНЧ на частоте среза: |K| и фаза?', o: [
+    ['K0/√2 ≈ 3,54 и 135°', 1, 'Модуль падает в √2 раз (−3 дБ), фаза: 180° от инверсии минус 45° от RC.'],
+    ['K0/2 и 90°', 0, 'Пополам делится только при двух резисторах. С R и C сопротивление делится на √2.'],
+    ['K0 и 180°', 0, 'Это на низких частотах.'],
+    ['0 и 0°', 0, 'Нет.']], exp: '−3 дБ = 0,707 от максимума, это определение границы полосы.' },
+  { id: 'd3', t: 'c', q: 'Почему ФВЧ 1-го порядка с LT1001 оказался полосовым (5,6-175 кГц)?', o: [
+    ['Неинвертирующий усилитель с K = 6 имеет полосу около fT/6 ≈ 133 кГц', 1, 'Сверху его режет сам ОУ.'],
+    ['Конденсатор C1 стоит не там', 0, 'Схема собрана верно.'],
+    ['Так задумано методикой', 0, 'По методике это ФВЧ, полосу добавил ОУ.'],
+    ['Из-за R1 = 2650 Ом', 0, 'R1 задаёт нижнюю частоту.']], exp: 'Нижняя граница 5,6 кГц ниже расчётных 6 кГц, потому что −3 дБ отсчитано от меньшего максимума 5,79.' },
+  { id: 'd4', t: 'c', q: 'Наклон АЧХ ФВЧ 2-го порядка ниже частоты среза?', o: [
+    ['+40 дБ/дек: рост в 100 раз за декаду', 1, 'Два конденсатора, второй порядок. В LTspice за декаду рост в 91 раз.'],
+    ['+20 дБ/дек', 0, 'Это первый порядок.'],
+    ['−40 дБ/дек', 0, 'Ниже среза ФВЧ коэффициент растёт с частотой, а не падает.'],
+    ['0', 0, 'Нет.']], exp: 'Каждый порядок добавляет 20 дБ/дек.' },
+  { id: 'd5', t: 'n', q: 'Полосовой MFB: K0 = R3·C2/(R1·(C1+C2)), R3 = 1770 Ом, R1 = 110,5 Ом, C1 = C2. Чему равен K0?', ans: 8, rel: 0.02, unit: '', exp: '1770 / (2·110,5) = 8,0. В LTspice 8,3 на 36 кГц.' },
+  { id: 'd6', t: 'c', q: 'Почему центр полосового фильтра в LTspice 36 кГц, а не расчётные 40?', o: [
+    ['На 40 кГц у LT1001 A ≈ 20, всего в 2,5 раза больше K фильтра; запаздывание ОУ сдвигает резонанс', 1, 'Сдвиг на 10 % - влияние полосы ОУ.'],
+    ['Номиналы округлены', 0, 'Округление даёт доли процента.'],
+    ['Ошибка формулы', 0, 'Формула для идеального ОУ даёт 39,99 кГц.'],
+    ['Слишком большой вход', 0, 'Для .ac амплитуда не важна.']], exp: 'Включи на стенде идеальный ОУ, и центр вернётся на 40 кГц.' },
+  { id: 'd7', t: 'c', q: 'Режекторный фильтр: почему провал −48 дБ, а не полный ноль?', o: [
+    ['R3 подключён к выходу ОУ, а LT1001 на 40 кГц немного сдвигает фазу и нарушает баланс моста', 1, 'Сигналы двух Т-звеньев компенсируются не до нуля.'],
+    ['Не выполнено R3 = R/2', 0, 'Выполнено: 198,9 = 397,9/2.'],
+    ['Мало точек расчёта', 0, 'Нет, это физика схемы.'],
+    ['Конденсаторы с потерями', 0, 'В модели конденсаторы идеальные.']], exp: 'f0 = 1/(2πRC) = 40 кГц, провал в LTspice на 39,85 кГц.' },
+  { id: 'd8', t: 'c', q: 'Q = 0,577 у ФВЧ 2-го порядка означает…', o: [
+    ['Фильтр Бесселя: АЧХ без подъёма, плавно подходит к полосе', 1, 'У Баттерворта 0,707, при большем Q появляется подъём.'],
+    ['Фильтр Чебышева с пульсациями', 0, 'У Чебышева Q больше 0,707.'],
+    ['Фильтр неустойчив', 0, 'Нет.'],
+    ['Полоса 0,577 кГц', 0, 'Q безразмерный.']], exp: 'Бессель даёт линейную ФЧХ и минимальные искажения формы импульсов.' },
+],
+lr6: [
+  { id: 'e1', t: 'n', q: 'Параметрический: Uвх = 12 В, Uст = 6 В, R1 = 400 Ом. Ток через R1, мА?', ans: 15, rel: 0.02, unit: 'мА', exp: '(12 − 6)/400 = 15 мА. Пока стабилитрон держит 6 В, этот ток постоянен.' },
+  { id: 'e2', t: 'n', q: 'Та же схема, Rн = 2000 Ом. Ток стабилитрона, мА?', ans: 12, rel: 0.03, unit: 'мА', exp: 'Нагрузка берёт 6/2000 = 3 мА, остаток 15 − 3 = 12 мА забирает стабилитрон.' },
+  { id: 'e3', t: 'c', q: 'Параметрический стабилизатор при Uвх = 8 В. Что на выходе (Rн = 600 Ом)?', o: [
+    ['4,8 В: стабилитрон не пробит, работает делитель R1-Rн', 1, '8·600/1000 = 4,8 В. Стабилизация начинается примерно с 10 В.'],
+    ['6 В', 0, 'Для пробоя нужно 6 В на стабилитроне, а делитель даёт меньше.'],
+    ['8 В', 0, 'На R1 падает часть напряжения.'],
+    ['0', 0, 'Ток через R1 и нагрузку идёт.']], exp: 'Отсюда требование Uвх.min > Uвых + 2,5…3 В.' },
+  { id: 'e4', t: 'c', q: 'Зачем во второй схеме транзистор?', o: [
+    ['Усилитель тока: стабилитрон даёт только ток базы, в β ≈ 50 раз меньше тока нагрузки', 1, 'Стабилитрон становится источником опорного напряжения, ток нагрузки идёт от входа через транзистор.'],
+    ['Чтобы повысить выходное напряжение', 0, 'Выход наоборот ниже на Uбэ.'],
+    ['Для защиты от КЗ', 0, 'Защиты в этой схеме нет.'],
+    ['Чтобы уменьшить пульсации', 0, 'Не основная роль.']], exp: 'Отсюда 0,5 А вместо 15 мА, но транзистор греется: (12 − 6)·0,5 = 3 Вт.' },
+  { id: 'e5', t: 'c', q: 'Почему в схеме с повторителем стабилитрон на 6,5 В, а не на 6?', o: [
+    ['Uвых = Uст − Uбэ, а у 2N3055 при 0,5 А Uбэ ≈ 0,45 В', 1, 'Эмиттер повторяет базу за вычетом перехода база-эмиттер.'],
+    ['Чтобы был запас по току', 0, 'Запас по току даёт R1, а не напряжение стабилитрона.'],
+    ['Других не было', 0, 'Нет, выбор расчётный.'],
+    ['Из-за R1', 0, 'R1 задаёт ток, а не напряжение.']], exp: 'По методике Vd = 0,6 + Vout.' },
+  { id: 'e6', t: 'c', q: 'Компенсационный стабилизатор: выход вырос. Что делает схема?', o: [
+    ['База Q1 растёт, Q1 открывается и снижает базу Q2, Q2 и Q3 прикрываются, выход возвращается', 1, 'Это отрицательная обратная связь: схема реагирует на ошибку выхода.'],
+    ['Стабилитрон D1 забирает лишний ток', 0, 'D1 только задаёт опору 3 В для Q1.'],
+    ['Ничего, выход держит D2', 0, 'D2 питает цепь управления.'],
+    ['Q3 открывается сильнее', 0, 'Наоборот.']], exp: 'Выход = (3 + 0,67)·(4,3 + 7)/7 ≈ 5,92 В: задаётся опорой и делителем.' },
+  { id: 'e7', t: 'n', q: 'Kст = (ΔUвх/Uвх)/(ΔUвых/Uвых). Uвх 12 → 14 В, Uвых 6,0015 → 6,0030 В. Kст?', ans: 667, rel: 0.05, unit: '', exp: '(2/12)/(0,0015/6,0015) ≈ 670.' },
+  { id: 'e8', t: 'c', q: 'У какой схемы самое маленькое выходное сопротивление и почему?', o: [
+    ['Компенсационная, 0,023 Ом: обратная связь отслеживает выход', 1, 'При удвоении тока до 2 А выход изменился на 23 мВ.'],
+    ['Параметрическая, 0,3 Ом', 0, '0,3 Ом - дифференциальное сопротивление стабилитрона, это больше всех.'],
+    ['С повторителем, 0,12 Ом', 0, 'В 5 раз больше, чем у компенсационной.'],
+    ['Одинаковое', 0, 'Нет.']], exp: 'Rвых = |ΔUвых/ΔIн|.' },
+],
+lr7: [
+  { id: 'f1', t: 'n', q: 'Повышающий 7 → 12 В. Коэффициент заполнения D (идеально)?', ans: 0.417, abs: 0.006, unit: '', exp: 'D = 1 − Uвх/Uвых = 1 − 7/12. В методике формула с ошибкой: 1 − Vout/Vin даёт отрицательное D.' },
+  { id: 'f2', t: 'c', q: 'Почему у повышающего выход больше входа?', o: [
+    ['В фазе отдачи катушка включена последовательно со входом, и её напряжение складывается с входным', 1, '7 + 5,4 = 12,4 В в точке перед диодом. Катушка - временная батарейка, заряженная в фазе «открыт».'],
+    ['Конденсатор удваивает напряжение', 0, 'Конденсатор только сглаживает.'],
+    ['Диод повышает напряжение', 0, 'Диод только пропускает ток в одну сторону.'],
+    ['Транзистор усиливает', 0, 'Транзистор - ключ.']], exp: 'Энергия не берётся из ничего: напряжение выше, ток ниже. 7·0,444 ≈ 12·0,25.' },
+  { id: 'f3', t: 'c', q: 'Ключ повышающего сломался и всегда открыт (D = 1). Что будет?', o: [
+    ['Ток катушки растёт до ограничения сопротивлениями цепи, транзистор сгорает, выход падает до 0', 1, 'Это КЗ входа через катушку. Энергия в нагрузку не идёт, диод закрыт.'],
+    ['Выход станет бесконечным', 0, 'Формула 1/(1−D) выведена в предположении, что есть фаза отдачи. При D = 1 её нет.'],
+    ['Выход 12 В, ничего не изменится', 0, 'Нет.'],
+    ['Выход станет равен входу', 0, 'Нет, выход падает.']], exp: 'Реально boost работает до D около 0,8-0,9, дальше потери съедают больше, чем добавляет катушка.' },
+  { id: 'f4', t: 'c', q: 'Индуктивность уменьшили вдвое (560 → 280 мкГн). Что изменилось?', o: [
+    ['Пульсации тока катушки вдвое больше, выходное напряжение то же', 1, 'ΔI = Uвх·D/(L·f): меньше «инерция», быстрее разгон. Среднее задаёт только D.'],
+    ['Выход вдвое меньше', 0, 'L на среднее не влияет.'],
+    ['Пульсации напряжения вдвое больше', 0, 'Их задаёт C.'],
+    ['Ничего', 0, 'Пульсации тока изменились.']], exp: 'Таблица: 0,113 → 0,214 А.' },
+  { id: 'f5', t: 'c', q: 'Повышающий без ОС: вход упал с 7 до 6 В. Выход?', o: [
+    ['Упадёт пропорционально, около 10,3 В', 1, 'D фиксирован, Uвых = Uвх/(1 − D).'],
+    ['Останется 12 В', 0, 'Удерживать некому: обратной связи нет.'],
+    ['Вырастет', 0, 'Нет.'],
+    ['Упадёт до 0', 0, 'Нет.']], exp: 'Именно поэтому во второй схеме обратная связь.' },
+  { id: 'f6', t: 'c', q: 'Откуда при пуске повышающего выброс 16,2 В и затухающие колебания?', o: [
+    ['LC-контур: катушка по инерции проскакивает 12 В, энергия качается между L и C и гасится нагрузкой', 1, 'Толчок один - включение. Нагрузка 48 Ом - как трение для качелей.'],
+    ['ШИМ работает с перебоями', 0, 'ШИМ одинаковый каждый период.'],
+    ['Диод пробивается', 0, 'Нет.'],
+    ['Это шум', 0, 'Период около 1,8 мс точно совпадает с LC-резонансом.']], exp: 'При лёгкой нагрузке (96 Ом) затухание слабее, выброс больше: 16,6 В.' },
+  { id: 'f7', t: 'c', q: 'В понижающем сгорел диод D1 в обрыв. Что произойдёт, когда ключ закроется?', o: [
+    ['Току катушки некуда идти, она тянет точку X вниз на десятки вольт, ключ пробивается и сгорает', 1, 'Диод - единственный обратный путь из земли к катушке, когда ключ отрезал вход.'],
+    ['Весь ток пойдёт в землю', 0, 'Наоборот: без диода круг тока разорван.'],
+    ['Выход станет 12 В', 0, 'Нет.'],
+    ['Ничего, ток пойдёт через конденсатор', 0, 'Конденсатор справа от катушки, он не замыкает путь слева.']], exp: 'На ключе 12 − (−100) В при допустимых около 20 В.' },
+  { id: 'f8', t: 'c', q: 'Почему в понижающем P-канальный ключ, а в повышающем N-канальный?', o: [
+    ['Удобно управлять: у P исток на +12 В, открывается затвором 0 В; у N сверху понадобился бы затвор 22 В', 1, 'N-канальный открыт, когда затвор выше истока; при открытом ключе исток поднимается до 12 В.'],
+    ['P-канальный понижает напряжение', 0, 'Понижает схема, ключ только включает и выключает ток.'],
+    ['N-канальный не выдерживает 12 В', 0, 'Выдерживает.'],
+    ['Без разницы', 0, 'Разница в управлении затвором.']], exp: 'В повышающем ключ стоит на землю, и N-канальный открывается обычным импульсом 0-10 В.' },
+  { id: 'f9', t: 'n', q: 'Понижающий с ОС: Rtop = 2,5 кОм, Rbot = 1 кОм. Vref подняли с 2 до 2,5 В. Выход, В?', ans: 8.75, abs: 0.03, unit: 'В', exp: 'ОС держит fb = Vref, fb = Uвых/3,5. Uвых = 2,5·3,5 = 8,75 В. Предел: D = 1, Uвых ≤ 12 В.' },
+  { id: 'f10', t: 'c', q: 'Из ПИ-регулятора убрали Cp, осталась только П-часть. Выход?', o: [
+    ['Не ровно на задании: останется статическая ошибка', 1, 'П-регулятор меняет управление только пропорционально ошибке, значит ошибка должна остаться, чтобы держать нужное D.'],
+    ['Ровно 7,000 В', 0, 'Ровно доводит только И-часть: интеграл ползёт, пока ошибка не ноль.'],
+    ['Схема перестанет работать', 0, 'Работает, просто с ошибкой.'],
+    ['Выход станет 12 В', 0, 'Нет.']], exp: 'Это обычный инвертирующий усилитель с K = Rp2/Rp1 = 0,51.' },
+  { id: 'f11', t: 'c', q: 'Зачем в генераторе треугольника R4 = 12 кОм вместо 10,1 кОм по методике?', o: [
+    ['С 10,1 кОм пороги триггера 0,02 и 4,98 В - почти край питания 5 В, интегратор туда не дотягивался, генератор не запускался', 1, 'С 12 кОм пороги 0,42 и 4,58 В. Частоту сохранили, пересчитав R5 до 600 кОм.'],
+    ['Чтобы изменить частоту', 0, 'Частоту как раз сохранили.'],
+    ['Для меньших пульсаций', 0, 'Нет.'],
+    ['Такого номинала нет', 0, 'Дело не в ряде номиналов.']], exp: 'Генератор = триггер Шмитта (компаратор с гистерезисом) + интегратор из ЛР2.' },
+  { id: 'f12', t: 'c', q: 'Почему в дифусилителе ошибки Vfb и Vref поменяли местами относительно методики?', o: [
+    ['ПИ-регулятор инвертирующий; с методичным порядком обратная связь получалась положительной', 1, 'При падении выхода регулятор уменьшал бы заполнение, и выход падал бы дальше.'],
+    ['Для красоты схемы', 0, 'Нет.'],
+    ['Так меньше пульсации', 0, 'Нет.'],
+    ['Иначе не хватало питания ОУ', 0, 'Нет.']], exp: 'e = Vdiv2 + Vfb − Vref. При выходе 7 В ошибка «ноль» = 2,5 В.' },
+],
+lr8: [
+  { id: 'g1', t: 'n', q: 'Зеркало с Rэ: Eп = 12 В, R1 = 100 Ом, Rэ = 10 Ом, Uбэ = 0,7 В. Расчётный ток, мА?', ans: 102.7, rel: 0.02, unit: 'мА', exp: '(12 − 0,7)/(100 + 10) = 102,7 мА. В LTspice 100,7: Uбэ чуть больше и часть тока уходит в базы.' },
+  { id: 'g2', t: 'c', q: 'Почему ток зеркала растёт с питанием примерно на 9 мА/В?', o: [
+    ['Опорный ток задаёт R1 прямо от питания: I ≈ (Eп − 0,7)/(R1 + Rэ)', 1, 'Зеркало копирует опорный ток вместе с его зависимостью от питания. 1/110 Ом ≈ 9 мА на вольт.'],
+    ['Растёт h21', 0, 'Не основная причина.'],
+    ['Транзистор насыщается', 0, 'Насыщение наоборот уменьшает ток.'],
+    ['Растёт Uбэ', 0, 'Uбэ почти не меняется.']], exp: 'У источника на ОУ опора 3 В отдельная, и ток от питания не зависит.' },
+  { id: 'g3', t: 'c', q: 'Зачем в зеркале эмиттерные резисторы?', o: [
+    ['Местная отрицательная ОС: если ток транзистора растёт, растёт падение на Rэ, Uбэ уменьшается', 1, 'Уменьшает влияние разброса и нагрева транзисторов.'],
+    ['Чтобы задать ток', 0, 'Ток задаёт в основном R1.'],
+    ['Защита от КЗ нагрузки', 0, 'Нет.'],
+    ['Для измерения тока', 0, 'Нет.']], exp: 'Отсюда название «зеркало с компенсацией теплового дрейфа».' },
+  { id: 'g4', t: 'c', q: 'Источник на ОУ даёт 294,8 мА, а не 300. Почему?', o: [
+    ['На R1 ровно 3 В и 300 мА эмиттера, но часть уходит в базу: Iк = Iэ·β/(β+1)', 1, 'β ≈ 57: 300·57/58 ≈ 295 мА.'],
+    ['ОУ неточен', 0, 'ОУ держит 3,000 В на R1.'],
+    ['R1 не 10 Ом', 0, '10 Ом.'],
+    ['Мало питания', 0, 'При 12 В и 15 Ом запаса хватает.']], exp: 'Через R1 в LTspice ровно 300,0 мА.' },
+  { id: 'g5', t: 'c', q: 'Источник на ОУ, нагрузку увеличили до 40 Ом. Что произошло?', o: [
+    ['Транзистор насыщается: на нагрузке не больше ~8,9 В, ток падает как U/Rн', 1, 'Нужно 12 В = Iн·Rн + 3 В на R1 + запас на транзисторе. При 300 мА и 40 Ом это уже 15 В.'],
+    ['Ток остаётся 295 мА', 0, 'Только до 30 Ом.'],
+    ['ОУ сгорает', 0, 'Нет, он просто упирается в насыщение.'],
+    ['Ток растёт', 0, 'Нет.']], exp: 'У источника на ОУ рабочая область меньше, чем у зеркал (8,9 против 10,5 В), из-за 3 В на R1.' },
+  { id: 'g6', t: 'c', q: 'Зеркало Уилсона дало 141,7 мА вместо расчётных 150. Почему?', o: [
+    ['В опорной ветви два перехода, и при 150 мА у 2N2222 Uбэ ≈ 0,8 В: теряется 1,6 В вместо 1,4', 1, 'Для точных 150 мА нужно R1 ≈ 64 Ом.'],
+    ['Ток уходит в базы', 0, 'У Уилсона эта ошибка как раз почти устранена.'],
+    ['Мало питания', 0, 'При 30 Ом запас есть.'],
+    ['Ошибка LTspice', 0, 'Нет.']], exp: 'Ток нагрузки и ток R1 у Уилсона практически совпадают.' },
+  { id: 'g7', t: 'n', q: 'Зеркало с Rэ: при Rн 10 → 100 Ом напряжение нагрузки 1,01 → 10,05 В, ток 100,9 → 100,5 мА. Rвых, кОм?', ans: 22.6, rel: 0.15, unit: 'кОм', exp: 'Rвых = ΔU/ΔI = 9,04 В / 0,4 мА ≈ 23 кОм (в отчёте около 20 кОм).' },
+  { id: 'g8', t: 'c', q: 'Какой источник лучше всех держит ток при изменении питания?', o: [
+    ['На ОУ: опора 3 В отдельная, ток с 8 до 16 В не меняется', 1, 'Зеркала повторяют опорный ток, который сам зависит от питания.'],
+    ['Уилсон', 0, 'Уилсон лучше держит ток при смене нагрузки, но не питания.'],
+    ['Зеркало с Rэ', 0, 'Его ток растёт на 9 мА/В.'],
+    ['Одинаково', 0, 'Нет.']], exp: 'Ниже 8 В и у ОУ-источника не хватает запаса напряжения.' },
+],
+};
+
+// ---------- шпаргалки ----------
+const CHEAT = {
+  lr2: [['Идеальный интегратор', 'K = 1/(2πfR1C1), на 2 кГц = 1. Ниже частоты K растёт - насыщение и дрейф.', 'Uвых = −(1/RC)∫Uвх dt'], ['Практический интегратор', 'R2 ∥ C1. Ниже fср усилитель с K = R2/R1 = 10, выше интегратор. fср в 10 раз ниже рабочей.', 'fср = 1/(2πR2C1) = 200 Гц'], ['R3', 'Компенсирует токи смещения, равен сопротивлению цепи минуса по постоянному току.', 'R3 = R1∥R2 ≈ 91 кОм'], ['Полоса ОУ', 'A = fT/f, fT ≈ 0,8 МГц. Усилитель с K работает до fT/K.', 'A(2 кГц) ≈ 400'], ['Пик дифференциатора', 'Растущий K встречает fT/f, фазы 90°+90°: LC-резонанс. 864 на 41,7 кГц.', 'f ≈ √(f₁·fT), L = R2/(2πfT)'], ['Практический дифференциатор', 'R1 ограничивает K до R2/R1 = 100 и гасит пик (90 на 12,6 кГц), C2 режет выше 200 кГц.', 'нужен ОУ с fT ≥ 2 МГц']],
+  lr3: [['Компаратор', 'ОУ без отрицательной ОС, выход в насыщении ±14 В показывает, какой вход больше.', 'выход +, когда U+ > U−'], ['Ограничения', 'Усиление: Uвх > 14·f/fT. Скорость: 28 В / 0,25 В/мкс = 112 мкс на переход.', 'f < 1/(2·112 мкс)'], ['Одновходовый', 'Токи складываются на одном входе, порог масштабируется резисторами.', 'Uпор = −Uоп·R1/R2'], ['Гистерезис', 'Положительная ОС на плюс. После переключения порог отскакивает - шум не вызывает дребезга.', 'U+ = Uоп·R2/(R1+R2) ± Uнас·R1/(R1+R2)'], ['Триггер Шмитта', 'VT1 закорачивает R3, порог 7 → 3,96 В. D1 защищает переход Б-Э, стабилитрон даёт ТТЛ 4,7 В.', 'R_B по h21 min = 50'], ['Оконный', 'U1 выше H, U2 ниже L, диоды «ИЛИ», R4 тянет к нулю.', 'U точки = I·(всё ниже точки)']],
+  lr4: [['Принцип', 'Инвертирующий усилитель K = 5 с нелинейным элементом параллельно R2. Минус - виртуальная земля, на элементе всё Uвых.', 'излом при |Uвх| = Uogr/K'], ['Диоды', 'Направление - какая полуволна, число - уровень: 0,61 и −1,21 В.', '≈ 0,6 В на диод'], ['Встречные стабилитроны', 'Один в пробое, другой прямо: ±10,43 В (ток 1,65 мА < 5 мА).', 'Uz + Ud'], ['Схема Гусева', 'Мост, стабилитрон держится в пробое от питания: излом резкий, ±11,37 В.', 'Uz + 2Ud, R2 = R3 = (2E − Uz)/(2Iz)'], ['Без Rос', 'Нет ООС в линейном режиме - компаратор с уровнями ±11,4 В.', '']],
+  lr5: [['Основа', 'Xc = 1/(2πfC). Характерная частота RC - где Xc = R. Граница полосы −3 дБ = 0,707.', 'f = 1/(2πRC)'], ['ФНЧ', 'K0 = −R2/R1 = −5, fср = 5 кГц, −20 дБ/дек. LTspice 4,86 кГц.', 'фаза на срезе 135°'], ['ФВЧ 1', 'K∞ = 1 + R3/R2 = 6, fср = 6 кГц. С LT1001 полосовой 5,6-175 кГц.', 'полоса ОУ fT/6'], ['ФВЧ 2 (MFB)', '+40 дБ/дек, K∞ = C1/C2 = 3, Q = 0,577 (Бессель), fср 2,94 кГц.', ''], ['Полосовой', 'f0 = 40 кГц, K0 = 8, Δf = 18 кГц. LTspice: 8,3 на 36 кГц.', 'Q = f0/Δf ≈ 2,2'], ['Режекторный', 'Двойной Т-мост, f0 = 40 кГц, −48 дБ: ОУ немного нарушает баланс.', 'R3 = R/2, C3 = 2C']],
+  lr6: [['Параметрический', 'R1 = 400 Ом, ток 15 мА делится между нагрузкой и стабилитроном. Предел 15 мА (400 Ом).', 'Kст ≈ 670, Rвых 0,3 Ом'], ['С повторителем', 'Стабилитрон 6,5 В задаёт базу, Uвых = Uст − Uбэ. Ток 0,5 А, Q1 греется на 3 Вт.', 'Kст ≈ 560, Rвых 0,12 Ом'], ['Компенсационный', 'Q1 сравнивает делитель выхода с опорой D1, через Q2 управляет Q3. D2 питает управление.', 'Kст ≈ 1240, Rвых 0,023 Ом'], ['Kст', 'Отношение относительных изменений входа и выхода.', 'Kст = (ΔUвх/Uвх)/(ΔUвых/Uвых)']],
+  lr7: [['Катушка', 'Инерция тока: напряжение - ток растёт линейно, обрыв - самоиндукция поднимает напряжение, пока току не найдётся путь.', 'ΔI/Δt = U/L'], ['Повышающий', 'Открыт - катушка копит, нагрузку кормит C. Закрыт - катушка + вход через диод в выход.', 'Uвых = Uвх/(1 − D), D = 0,417'], ['Пульсации', 'L - пульсации тока, C - напряжения, f - обе. Среднее задаёт только D.', 'ΔI = UвхD/(Lf), ΔU = IнD/(fC)'], ['Понижающий', 'LC-фильтр оставляет среднее прямоугольника 12/0 В. Диод - обратный путь тока.', 'Uвых = D·Uвх, D = 0,583'], ['Обратная связь', 'Делитель → ошибка → ПИ → сравнение с треугольником → ШИМ. И-часть даёт ровно 7,000 В.', 'Uвых = Vref(1 + Rtop/Rbot)'], ['Отличия от методики', 'R4 = 12к (генератор стартует), Vfb и Vref поменяны (иначе ОС положительная).', 'пуск: 13,5 В и 10 А']],
+  lr8: [['Зеркало с Rэ', 'Опорный ток от R1, T2 копирует. Rэ - местная ООС против разброса и нагрева. 100,7 мА.', 'I ≈ (Eп − 0,7)/(R1 + Rэ)'], ['Уилсон', 'T1 отбирает из узла ток, равный выходному, и подстраивает T3. 141,7 мА, Rвых ≈ 35 кОм.', 'I ≈ (Eп − 1,4…1,6)/(R1 + Rэ)'], ['На ОУ', 'ОУ держит 3 В на R1: Iэ = 300 мА от питания не зависит, Iк = 294,8 мА.', 'I = Uоп/R1'], ['Рабочая область', 'Пока на выходном транзисторе есть запас напряжения. Дальше насыщение: ток = U/Rн.', '10,5 / 10,3 / 8,9 В']],
+};
+
+// ---------- описание лаб ----------
+const LABS = [
+  { id: 'lr2', no: 'ЛР2', title: 'Интегратор и дифференциатор', sub: 'Полоса ОУ, частота среза, резонансный пик', sim: LR2 },
+  { id: 'lr3', no: 'ЛР3', title: 'Компараторы', sub: 'Пороги, гистерезис, триггер Шмитта, окно', sim: LR3 },
+  { id: 'lr4', no: 'ЛР4', title: 'Ограничители', sub: 'Диоды, стабилитроны, схема Гусева', sim: LR4 },
+  { id: 'lr5', no: 'ЛР5', title: 'Активные фильтры', sub: 'ФНЧ, ФВЧ, полосовой, режекторный', sim: LR5 },
+  { id: 'lr6', no: 'ЛР6', title: 'Стабилизаторы напряжения', sub: 'Параметрический, повторитель, компенсационный', sim: LR6 },
+  { id: 'lr7', no: 'ЛР7', title: 'DC-DC преобразователи', sub: 'Повышающий, понижающий с ПИ-регулятором', sim: LR7 },
+  { id: 'lr8', no: 'ЛР8', title: 'Источники тока', sub: 'Зеркала с Rэ и Уилсона, источник на ОУ', sim: LR8 },
+];
+const ALLQ = LABS.flatMap(l => Q[l.id].map(q => ({ ...q, lab: l.id })));
+
+// ---------- прогресс ----------
+const KEY = 'eusu-stand-v1';
+let progress = (() => {
+  try { const p = JSON.parse(localStorage.getItem(KEY)); if (p && p.labs) return p; } catch (e) {}
+  return null;
+})() || { xp: 0, labs: {}, deck: {} };
+LABS.forEach(l => { progress.labs[l.id] = progress.labs[l.id] || { best: 0, missions: {}, right: {} }; });
+function save() { try { localStorage.setItem(KEY, JSON.stringify(progress)); } catch (e) {} }
+function addXP(n) { progress.xp += n; $('#xp').textContent = progress.xp; }
+const today = () => Math.floor(Date.now() / 864e5);
+function deckPush(id) { progress.deck[id] = { box: 0, due: today() }; }
+function deckRight(id) { const d = progress.deck[id]; if (!d) return; d.box++; if (d.box >= 3) delete progress.deck[id]; else d.due = today() + [1, 3, 7][d.box]; }
+const dueList = () => Object.entries(progress.deck).filter(([, d]) => d.due <= today()).map(([id]) => id);
+function stars(id) {
+  const p = progress.labs[id], lab = LABS.find(l => l.id === id);
+  const m = lab.sim.missions.every(x => p.missions[x.id]);
+  return [m, p.best >= 0.8, p.best >= 1].filter(Boolean).length;
+}
+function refreshStats() {
+  $('#xp').textContent = progress.xp;
+  $('#passed').textContent = LABS.filter(l => progress.labs[l.id].best >= 0.8).length;
+  $('#due').textContent = Object.keys(progress.deck).length;
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => el.hidden = true, 2200); }
+
+// ---------- экраны ----------
+const view = $('#view');
+function showMap() {
+  current = { screen: 'map' };
+  refreshStats();
+  view.innerHTML = `<section class="hero"><h2>Семь стендов и экзамен по ЭУСУ</h2>
+    <p>На каждом стенде живая схема: крутишь номиналы и частоту, графики пересчитываются. Потом подковырки «что будет, если», сначала сам предсказываешь, потом объяснение. Ошибки возвращаются в работу над ошибками через 1, 3 и 7 дней.</p></section>
+    <div class="benches">${LABS.map(l => {
+      const s = stars(l.id), pass = progress.labs[l.id].best >= 0.8;
+      return `<button class="bench" type="button" data-lab="${l.id}"><span class="no">${l.no}<small>стенд</small></span>
+        <span><h3>${l.title} ${pass ? '<span class="stamp">зачтено</span>' : ''}</h3><p>${l.sub}</p></span>
+        <span class="meter" aria-label="${s} из 3">${[0, 1, 2].map(i => `<i class="${i < s ? 'on' : ''}"></i>`).join('')}</span></button>`;
+    }).join('')}</div>
+    <div class="exam-card"><div><h3>Экзамен</h3><p>12 случайных вопросов по всем лабам, три жизни. Сначала идут те, на которых ты уже ошибался.</p></div>
+    <button class="btn red" type="button" id="exam">Начать</button></div>
+    <p class="note" style="margin-top:16px">Кружки: все задания стенда, 80 % подковырок, 100 % подковырок. Зачёт по лабе - от 80 %. Прогресс хранится в этом браузере.</p>`;
+  view.querySelectorAll('[data-lab]').forEach(b => b.onclick = () => openLab(b.dataset.lab, 'bench'));
+  $('#exam').onclick = () => startQuiz(examSet(), 'Экзамен', null, 3);
+}
+let current = { screen: 'map' };
+function openLab(id, tab) {
+  const lab = LABS.find(l => l.id === id);
+  current = { screen: 'lab', id, tab };
+  view.innerHTML = `<section class="labhead"><span class="eyebrow">${lab.no} · ${lab.sub}</span><h2>${lab.title}</h2></section>
+    <div class="tabs" role="tablist">${[['bench', 'Стенд'], ['quiz', 'Подковырки'], ['cheat', 'Шпаргалка']].map(([k, t]) =>
+      `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${k === tab}">${t}</button>`).join('')}</div><div id="tabbody"></div>`;
+  view.querySelectorAll('.tab').forEach(b => b.onclick = () => openLab(id, b.dataset.tab));
+  const body = $('#tabbody');
+  lastRender = null;
+  if (tab === 'bench') buildBench(body, lab);
+  else if (tab === 'cheat') body.innerHTML = `<div class="cheat">${CHEAT[id].map(([h, p, f]) => `<div class="c"><h5>${h}</h5><p>${p}</p>${f ? `<span class="f">${f}</span>` : ''}</div>`).join('')}</div>`;
+  else startQuiz(Q[id].map(q => ({ ...q, lab: id })), lab.no + ' · подковырки', id, 0, body);
+  window.scrollTo({ top: 0 });
+}
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function examSet() {
+  const due = shuffle(ALLQ.filter(q => progress.deck[q.id]));
+  const rest = shuffle(ALLQ.filter(q => !progress.deck[q.id]));
+  // равномерно по лабам
+  const byLab = {}; rest.forEach(q => (byLab[q.lab] = byLab[q.lab] || []).push(q));
+  const spread = []; let k = 0;
+  while (spread.length < rest.length) { for (const l of LABS) { const a = byLab[l.id] || []; if (a[k]) spread.push(a[k]); } k++; }
+  return [...due, ...spread].slice(0, 12);
+}
+
+function startQuiz(qs, title, labId, lives, root = view) {
+  let i = 0, right = 0, life = lives, wrongs = [];
+  const order = labId ? qs : qs;
+  const step = () => {
+    if (i >= order.length || (lives && life <= 0)) return finish();
+    const q = order[i], lab = LABS.find(l => l.id === q.lab);
+    root.innerHTML = `<div class="progress"><div style="width:${i / order.length * 100}%"></div></div>
+      <div class="qcard" style="margin-top:12px">
+      <div class="qmeta"><span>${title}</span><span>· ${i + 1}/${order.length}</span>${!labId ? `<span>· ${lab.no}</span>` : ''}${lives ? `<span class="lives">${'♥'.repeat(life)}${'♡'.repeat(lives - life)}</span>` : ''}</div>
+      <p class="qtext">${q.q}</p><div id="ans"></div><div id="res"></div></div>`;
+    const ans = $('#ans', root), res = $('#res', root);
+    const done = (ok, why) => {
+      if (ok) { right++; addXP(10); deckRight(q.id); progress.labs[q.lab].right[q.id] = true; }
+      else { deckPush(q.id); wrongs.push(q); if (lives) life--; }
+      save(); refreshStats();
+      res.innerHTML = `<div class="verdict ${ok ? 'good' : 'bad'}"><h5>${ok ? 'Верно' : 'Неверно'}</h5>${why ? `<p>${why}</p>` : ''}<p>${q.exp}</p></div>
+        ${q.say ? `<div class="say"><b>Сказать на экзамене</b>${q.say}</div>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="next">${i + 1 < order.length && !(lives && life <= 0) ? 'Дальше' : 'Итог'}</button>
+        ${q.lab && current.screen !== 'lab' ? `<button class="btn ghost" type="button" id="tolab">Открыть стенд ${lab.no}</button>` : ''}</div>`;
+      $('#next', root).onclick = () => { i++; step(); };
+      const tl = $('#tolab', root); if (tl) tl.onclick = () => openLab(q.lab, 'bench');
+      $('#next', root).focus();
+    };
+    if (q.t === 'c') {
+      const opts = shuffle(q.o);
+      ans.innerHTML = `<div class="opts">${opts.map((o, k) => `<button class="opt" type="button" data-k="${k}">${o[0]}</button>`).join('')}</div>`;
+      ans.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+        const o = opts[+b.dataset.k];
+        ans.querySelectorAll('.opt').forEach((x, k) => { x.disabled = true; if (opts[k][1]) x.classList.add('right'); });
+        if (!o[1]) b.classList.add('wrong');
+        done(!!o[1], o[2]);
+      });
+    } else {
+      ans.innerHTML = `<form class="numrow" id="nf"><input id="num-${q.id}" inputmode="decimal" autocomplete="off" placeholder="число" aria-label="Ответ"><span>${q.unit || ''}</span><button class="btn" type="submit">Проверить</button></form>`;
+      const inp = ans.querySelector('input'); inp.focus();
+      $('#nf', root).onsubmit = e => {
+        e.preventDefault();
+        const v = parseFloat(inp.value.replace(',', '.').replace('−', '-'));
+        if (isNaN(v)) { toast('Введи число, дробь через запятую или точку'); return; }
+        const ok = q.abs !== undefined ? Math.abs(v - q.ans) <= q.abs : Math.abs(v - q.ans) <= Math.abs(q.ans) * q.rel;
+        inp.disabled = true; ans.querySelector('button').disabled = true;
+        done(ok, ok ? '' : 'Правильный ответ: ' + fmt(q.ans, 3) + ' ' + (q.unit || '') + '.');
+      };
+    }
+  };
+  const finish = () => {
+    const share = right / order.length;
+    if (labId) { const p = progress.labs[labId]; if (share > p.best) p.best = share; if (share >= 0.8) addXP(30); save(); refreshStats(); }
+    const grade = share >= 0.9 ? 'Отлично' : share >= 0.75 ? 'Хорошо' : share >= 0.6 ? 'Удовлетворительно' : 'Ещё разок';
+    root.innerHTML = `<div class="summary"><span class="eyebrow mono">${title}</span><div class="grade">${grade}</div>
+      <p>Верно ${right} из ${order.length}${lives && life <= 0 ? ', жизни кончились' : ''}. ${wrongs.length ? 'Ошибки ушли в работу над ошибками и вернутся завтра.' : 'Без ошибок.'}</p>
+      ${wrongs.length ? `<div class="cheat">${wrongs.map(q => `<div class="c"><h5>${LABS.find(l => l.id === q.lab).no}</h5><p>${q.q}</p><span class="f">${q.exp}</span></div>`).join('')}</div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="again">Пройти ещё раз</button><button class="btn ghost" type="button" id="tomap">К стендам</button></div></div>`;
+    $('#again', root).onclick = () => labId ? openLab(labId, 'quiz') : startQuiz(examSet(), 'Экзамен', null, 3);
+    $('#tomap', root).onclick = showMap;
+  };
+  if (root === view) current = { screen: 'quiz' };
+  step();
+}
+function showReview() {
+  const ids = Object.keys(progress.deck);
+  const qs = shuffle(ALLQ.filter(q => ids.includes(q.id)));
+  if (!qs.length) {
+    current = { screen: 'review' };
+    view.innerHTML = `<section class="hero"><h2>Ошибок к повтору нет</h2><p>Сюда попадают вопросы, на которых ты ошибся. Каждый нужно ответить правильно три раза с паузами в 1, 3 и 7 дней.</p></section><button class="btn" type="button" id="tomap">К стендам</button>`;
+    $('#tomap').onclick = showMap; return;
+  }
+  startQuiz(qs, 'Работа над ошибками', null, 0);
+}
+
+$('#home').onclick = showMap;
+$('#review').onclick = showReview;
+const rerender = () => { if (lastRender) lastRender(); };
+window.addEventListener('resize', rerender);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
+new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts) document.fonts.ready.then(rerender);
+
+const start = data => {
+  if (data && data.progress) progress = data.progress;
+  refreshStats();
+  const h = /^#(lr[2-8])(?:-(quiz|cheat))?$/.exec(location.hash);
+  if (data && data.current && data.current.screen === 'lab') openLab(data.current.id, data.current.tab);
+  else if (h) openLab(h[1], h[2] || 'bench');
+  else if (location.hash === '#exam') startQuiz(examSet(), 'Экзамен', null, 3);
+  else showMap();
+};
+try { window.claude?.hot?.snapshot?.(() => ({ progress, current })); } catch (e) {}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
