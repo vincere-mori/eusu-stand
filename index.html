@@ -177,6 +177,29 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .cheat .c p { margin: 0; font-size: 14px; }
 .cheat .f { font-family: var(--f-mono); font-size: 13px; color: var(--ch1); display: block; margin-top: 4px; overflow-x: auto; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 5px; font-size: 14px; z-index: 20; }
+.schem .cap { justify-content: space-between; align-items: center; }
+.schem canvas { height: auto; }
+.scope .ov { position: absolute; pointer-events: none; }
+.play { display: flex; gap: 4px; }
+.play button { border: 1px solid var(--line); background: transparent; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-family: var(--f-mono); font-size: 12px; color: var(--ink); }
+.play button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+.xpfloat { position: fixed; z-index: 31; transform: translate(-50%, 0); font-family: var(--f-display); font-size: 16px; color: var(--ok); pointer-events: none; animation: rise 1.1s ease-out forwards; }
+@keyframes rise { to { transform: translate(-50%, -48px); opacity: 0; } }
+.shake { animation: shake .35s; }
+@keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+.boss { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; background: var(--card); border: 2px solid var(--pencil); border-radius: 6px; padding: 10px 14px; max-width: 760px; }
+.boss .who { font-family: var(--f-display); font-size: 14px; color: var(--pencil); }
+.boss .who small { display: block; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.bar { height: 10px; background: var(--chip); border-radius: 5px; overflow: hidden; }
+.bar div { height: 100%; background: var(--pencil); transition: width .4s; }
+.timer { font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.timer.low { color: var(--pencil); }
+.combo { font-family: var(--f-display); color: var(--amber); font-size: 13px; }
+.led { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--line); margin-right: 6px; vertical-align: middle; }
+.led.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.faultplot { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+.faultplot canvas { display: block; width: 100%; height: 220px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
@@ -186,15 +209,18 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   <header class="top">
     <button class="brand" id="home" type="button"><h1>Стенд ЭУСУ</h1><span>ЛР2-ЛР8 · LT1001</span></button>
     <div class="stats">
+      <span class="stat" id="rank">Первокурсник</span>
       <span class="stat">XP <b id="xp">0</b></span>
       <span class="stat">Зачтено <b id="passed">0</b>/7</span>
       <span class="stat">Ошибок к повтору <b id="due">0</b></span>
     </div>
     <button class="navbtn" id="review" type="button">Работа над ошибками</button>
+    <button class="navbtn" id="snd" type="button" aria-pressed="true">Звук</button>
   </header>
   <main id="view"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<canvas id="fx"></canvas>
 
 <script>
 'use strict';
@@ -305,7 +331,7 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 // ---------- рисование графиков ----------
 function niceTicks(min, max, n = 6) {
   const span = max - min, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || mag * 10;
+  const step = [1, 2, 5, 10].map(m => m * mag).find(s => span / s <= n) || mag * 10;
   const out = [];
   for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-6; v += step) out.push(+v.toPrecision(10));
   return out;
@@ -389,6 +415,7 @@ function plot(cv, cfg) {
     g.fillStyle = p.color; g.beginPath(); g.arc(tx(p.x), ty(p.y, p.y2 ? cfg.y2 : ys), 4.5, 0, 7); g.fill();
   }
   g.restore();
+  cv._tx = tx; cv._box = [L, T, pw, ph];
   if (cfg.xlabel) { g.fillStyle = muted; g.textAlign = 'right'; g.textBaseline = 'top'; g.fillText(cfg.xlabel, L + pw - 4, T + 4); }
 }
 const fHz = v => v >= 1e6 ? fmt(v / 1e6) + 'М' : v >= 1e3 ? fmt(v / 1e3) + 'к' : fmt(v);
@@ -402,7 +429,11 @@ function buildBench(root, lab) {
   const S = lab.sim, st = progress.labs[lab.id].sim || (progress.labs[lab.id].sim = JSON.parse(JSON.stringify(S.init)));
   root.innerHTML = `<div class="bench-grid">
     <div class="panel" id="ctlpanel"></div>
-    <div class="plots"><div class="readouts" id="ro"></div><div id="plotarea" class="plots"></div><p class="note" id="simnote"></p>
+    <div class="plots">
+      <div class="scope schem"><div class="cap"><span>Схема: точки - ток, их скорость - величина тока, подсветка - открытый элемент или насыщение</span>
+        <span class="play"><button type="button" id="pp" aria-label="Пауза">❚❚</button>${[[0.25, '×¼'], [1, '×1'], [3, '×3']].map(([v, t]) => `<button type="button" data-sp="${v}" aria-pressed="${v === 1}">${t}</button>`).join('')}</span></div>
+        <canvas id="sch"></canvas></div>
+      <div class="readouts" id="ro"></div><div id="plotarea" class="plots"></div><p class="note" id="simnote"></p>
       <div class="panel"><h4>Задания на стенде</h4><div class="missions" id="missions"></div></div></div></div>`;
   const draw = () => {
     const ctl = $('#ctlpanel', root);
@@ -442,17 +473,64 @@ function buildBench(root, lab) {
     out.plots.forEach((p, i) => plot($('#pl' + i, root), p.cfg));
     $('#simnote', root).innerHTML = out.note || '';
     lastRender = () => out.plots.forEach((p, i) => plot($('#pl' + i, root), p.cfg));
+    anim.data = out.anim; anim.sc = SCH[lab.id](st); anim.root = root;
+    const A = out.anim, maxes = {};
+    for (const f of anim.sc.flows) { const k = f.norm || f.key; if (!(k in maxes)) maxes[k] = Math.max(1e-12, ...A.frames.map(fr => Math.abs(fr[k] ?? 0))); }
+    anim.maxes = maxes;
+    animDraw(0);
+    if (!anim.run) { anim.run = true; anim.last = performance.now(); requestAnimationFrame(animLoop); }
     // задания
     const done = progress.labs[lab.id].missions;
     S.missions.forEach(m => {
-      if (!done[m.id] && m.check(st, out.v || {})) { done[m.id] = true; addXP(20); toast('Задание выполнено: +20 XP'); save(); }
+      if (!done[m.id] && m.check(st, out.v || {})) { done[m.id] = true; addXP(20); toast('Задание выполнено: +20 XP'); SND.win(); const b = $('#missions', root); if (b) { const r = b.getBoundingClientRect(); burst(r.left + 40, r.top); } save(); }
     });
     $('#missions', root).innerHTML = S.missions.map(m => `<div class="mission ${done[m.id] ? 'done' : ''}"><span class="box">${done[m.id] ? '✓' : ''}</span>
       <p>${m.text}${done[m.id] && m.after ? `<br><span class="note">${m.after}</span>` : ''}</p></div>`).join('');
   };
+  root.querySelector('#pp').onclick = e => { anim.paused = !anim.paused; e.target.textContent = anim.paused ? '▶' : '❚❚'; e.target.setAttribute('aria-label', anim.paused ? 'Пуск' : 'Пауза'); };
+  root.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { anim.speed = +b.dataset.sp; root.querySelectorAll('[data-sp]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  anim.speed = 1; anim.paused = reduced; anim.tau = 0.3; anim.ph = [];
+  if (reduced) root.querySelector('#pp').textContent = '▶';
   draw();
 }
 let lastRender = null;
+const anim = { run: false, tau: 0, ph: [], speed: 1 };
+function animLoop(now) {
+  const root = anim.root, cv = root && root.isConnected && $('#sch', root);
+  if (!cv) { anim.run = false; return; }
+  const dt = Math.min(0.05, (now - anim.last) / 1000); anim.last = now;
+  animDraw(dt);
+  requestAnimationFrame(animLoop);
+}
+function animDraw(dt) {
+  const root = anim.root, cv = $('#sch', root);
+  const A = anim.data, n = A.frames.length;
+  if (!anim.paused) anim.tau = (anim.tau + dt * anim.speed / (A.slow ? 8 : 6)) % 1;
+  const i = Math.min(n - 1, Math.floor(anim.tau * n)), fr = A.frames[i];
+  anim.sc.flows.forEach((f, k) => {
+    const v = fr[f.key] ?? 0;
+    let live;
+    if (A.dc) live = v > 0 ? clamp(Math.log10(v / 1e-5) / 4, 0.08, 1.4) : 0;
+    else live = Math.abs(v) / anim.maxes[f.norm || f.key];
+    f.live = Math.min(1.4, live);
+    if (!anim.paused) anim.ph[k] = (anim.ph[k] || 0) + Math.sign(v) * f.live * 70 * dt * (A.dc ? 1 : Math.max(0.5, anim.speed));
+  });
+  drawScheme(cv, anim.sc, fr, anim.ph);
+  // курсор времени на осциллограмме
+  if (A.t && A.plot !== undefined) {
+    const pc = $('#pl' + A.plot, root);
+    if (pc && pc._tx) {
+      let ov = pc.parentNode.querySelector('.ov');
+      if (!ov) { ov = document.createElement('canvas'); ov.className = 'ov'; pc.parentNode.appendChild(ov); }
+      const dpr = window.devicePixelRatio || 1;
+      ov.style.left = pc.offsetLeft + 'px'; ov.style.top = pc.offsetTop + 'px'; ov.style.width = pc.clientWidth + 'px'; ov.style.height = pc.clientHeight + 'px';
+      if (ov.width !== pc.width) { ov.width = pc.width; ov.height = pc.height; }
+      const g = ov.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, ov.width, ov.height);
+      const [L, T, pw, ph] = pc._box, X = pc._tx(A.t[i]);
+      g.strokeStyle = css('--amber'); g.lineWidth = 2; g.beginPath(); g.moveTo(X, T); g.lineTo(X, T + ph); g.stroke();
+    }
+  }
+}
 
 // ---------- ЛР2: интегратор и дифференциатор ----------
 const LR2C = {
@@ -516,6 +594,7 @@ const LR2 = {
       difp: 'R1 останавливает рост K на уровне R2/R1 = 100 и гасит резонанс, C2 режет частоты выше 200 кГц. С LT1001 полки 100 нет: усиления ОУ не хватает уже после 12,6 кГц.',
     };
     return {
+      anim: { t: r.t, plot: 1, frames: r.t.map((_, i) => ({ iin: s.c.startsWith('int') ? r.vin[i] : -r.vout[i], vout: r.vout[i], oa: r.vout[i] / OA.Usat })) },
       v: { K, clipped: r.clipped, fpk },
       readouts: ro,
       plots: [
@@ -594,7 +673,7 @@ const LR3 = {
       const a = Aol(s.f);
       y[0] = -s.amp * cabs(a) * Math.sin(carg(a));
     }
-    const t = [], vin = [], vout = [];
+    const t = [], vin = [], vout = [], frames = [];
     let tt = 0;
     for (let i = 0; i <= steps; i++) {
       for (let k = 0; k < sub; k++) {
@@ -602,7 +681,21 @@ const LR3 = {
         for (let j = 0; j < m.n; j++) y[j] = opStep(y[j], vd[j], dt / sub);
         tt += dt / sub;
       }
-      if (i % 4 === 0) { t.push(tt * 1e3); vin.push(wave(s.wave, tt, P, lo, hi)); vout.push(m.out(y)); }
+      if (i % 4 === 0) {
+        const x = wave(s.wave, tt, P, lo, hi), o = m.out(y), vd = m.vd(x, y);
+        t.push(tt * 1e3); vin.push(x); vout.push(o);
+        const fr = { vout: o, oa: y[0] / OA.Usat };
+        if (s.c === 'zero') fr.vm = x;
+        if (s.c === 'one') fr.vm = -vd[0];
+        if (s.c === 'two') fr.vm = x;
+        if (s.c === 'hys') { fr.vm = x; fr.vp = vd[0] + x; }
+        if (s.c === 'sch') {
+          const q = s.fault === 'open' ? 0 : s.fault === 'short' ? 1 : (y[0] > 0.7 ? 1 : 0);
+          Object.assign(fr, { vm: x - vd[0], q, ir3: q ? 0 : 1, iq: q, irb: y[0] > 0 ? 1 : -1, iz: o > 0 ? 1 : -0.3, z: o > 4 ? 1 : 0 });
+        }
+        if (s.c === 'win') Object.assign(fr, { oa1: y[0] / OA.Usat, oa2: y[1] / OA.Usat, d1: y[0] > 0.7 ? 1 : 0, d2: y[1] > 0.7 ? 1 : 0, i1: y[0] > 0.7 ? o : 0, i2: y[1] > 0.7 ? o : 0 });
+        frames.push(fr);
+      }
     }
     // статическая характеристика: развёртка вверх и вниз
     const xr = s.c === 'zero' ? 0.05 : 12, xs = [], up = [], dn = [];
@@ -625,6 +718,7 @@ const LR3 = {
       win: 'U1 тревожит выше H, U2 ниже L, диоды складывают их по «ИЛИ», R4 тянет выход к нулю внутри окна. Пороги = ток делителя × сопротивление ниже точки.',
     };
     return {
+      anim: { t, plot: 0, frames },
       v: { switched, thrv: m.thrv, H: m.H, L: m.L, vmax, vmin },
       readouts: ro,
       plots: [
@@ -694,7 +788,10 @@ const LR4 = {
       gus: 'Стабилитрон в мосту уже в пробое, поэтому излом резкий. Уровень Uz + 2Ud ≈ 11,2 В (LTspice 11,37 В) одним стабилитроном в обе стороны.',
       gus0: 'Без Rос в линейном режиме нет отрицательной обратной связи. ОУ усиливает в полную силу, и схема становится компаратором с уровнями ±11,4 В.',
     };
+    const R2 = s.K * 1e4, imax = 16.5 / 1e4;
+    const frames = t.map((_, i) => { const iin = vi[i] / 1e4, ir2 = LR4C[s.c].roc ? -vo[i] / R2 : 0, iel = iin - ir2; return { iin, ir2, iel, el: Math.min(1, Math.abs(iel) / imax * 4), oa: vo[i] / OA.Usat, vout: vo[i] }; });
     return {
+      anim: { t, plot: 1, frames },
       v: { knee, lim },
       readouts: [['Уровень сверху / снизу', fmt(top, 2) + ' / ' + fmt(bot, 2) + ' В'], ['Излом при |Uвх|', LR4C[s.c].roc ? '≈ ' + fmt(knee, 2) + ' В' : 'около 0'], ['Наклон на линейном участке', LR4C[s.c].roc ? '−' + fmt(s.K, 1) : '∞']],
       plots: [
@@ -754,6 +851,7 @@ const LR5 = {
       notch: 'Двойной Т-мост: на f0 = 1/(2πRC) = 40 кГц сигналы двух путей гасят друг друга. В LTspice полного нуля нет: R3 подключён к выходу ОУ, LT1001 немного сдвигает фазу, и провал −48 дБ на 39,85 кГц. Упрощённая модель ОУ на стенде сдвигает фазу меньше, поэтому её провал глубже и уже.',
     };
     return {
+      anim: { t, plot: 1, frames: t.map((_, i) => ({ vin: vi[i], vout: vo[i], oa: vo[i] / OA.Usat })) },
       v: { K, mx, fmx, edges, mn },
       readouts: ro,
       plots: [
@@ -825,7 +923,12 @@ const LR6 = {
       f: 'Стабилитрон задаёт базу, транзистор отдаёт ток нагрузки. Стабилитрон нагружен только током базы, в β ≈ 50 раз меньшим. Uвых = Uст − Uбэ, поэтому стабилитрон 6,5 В.',
       c: 'Модель построена по точкам LTspice (Kст ≈ 1240, Rвых 0,023 Ом, предел около 2,9 А). Q1 сравнивает часть выхода с опорой D1, через Q2 управляет силовым Q3 - отрицательная обратная связь.',
     };
+    const fr = { U: r.U, In: r.In, Iz: r.Iz || 0, q: 1, z: (r.Iz || 0) > 1e-4 ? 1 : 0 };
+    if (s.c === 'p') fr.I1 = (s.Uin - r.U) / 400;
+    if (s.c === 'f') { fr.Ib = r.In / 51; fr.I1 = fr.Ib + fr.Iz; }
+    if (s.c === 'c') fr.Ifb = 2e-3;
     return {
+      anim: { dc: true, frames: [fr] },
       v: { U: r.U, holds, Rn, nom },
       readouts: ro,
       plots: [
@@ -850,7 +953,7 @@ function simBoost(s) {
   const bins = 400, per = Math.ceil(N / bins);
   const t = [], v = [], vlo = [], vhi = [], il = [], ilo = [], ihi = [];
   let bmin = 1e9, bmax = -1e9, imin = 1e9, imax = -1e9, peakV = 0, peakI = 0, sumV = 0, sumI = 0, cnt = 0;
-  const zoom = { t: [], v: [], i: [] };
+  const zoom = { t: [], v: [], i: [], on: [] };
   let lastMin = 1e9, lastMax = -1e9;
   for (let n = 0; n < N; n++) {
     const tt = n * dt, on = (tt / T) % 1 < s.D;
@@ -860,7 +963,7 @@ function simBoost(s) {
     bmin = Math.min(bmin, vc); bmax = Math.max(bmax, vc); imin = Math.min(imin, iL); imax = Math.max(imax, iL);
     peakV = Math.max(peakV, vc); peakI = Math.max(peakI, iL);
     if (tt > 0.015) { sumV += vc; sumI += iL; cnt++; }
-    if (tt > 0.02 - 3 * T) { if (n % 2 === 0) { zoom.t.push((tt - 0.02 + 3 * T) * 1e6); zoom.v.push(vc); zoom.i.push(iL); } }
+    if (tt > 0.02 - 3 * T) { if (n % 2 === 0) { zoom.t.push((tt - 0.02 + 3 * T) * 1e6); zoom.v.push(vc); zoom.i.push(iL); zoom.on.push(on ? 1 : 0); } }
     if (tt > 0.02 - T) { lastMin = Math.min(lastMin, vc); lastMax = Math.max(lastMax, vc); }
     if (n % per === per - 1) { t.push(tt * 1e3); v.push((bmin + bmax) / 2); vlo.push(bmin); vhi.push(bmax); il.push((imin + imax) / 2); ilo.push(imin); ihi.push(imax); bmin = imin = 1e9; bmax = imax = -1e9; }
   }
@@ -874,7 +977,7 @@ function simBuck(s) {
   const bins = 400, per = Math.ceil(N / bins);
   const t = [], v = [], il = [], ilo = [], ihi = [], dd = [];
   let imin = 1e9, imax = -1e9, peakV = 0, peakI = 0, sumV = 0, cnt = 0, Dlast = 0, tset = 0, final = 0;
-  const hist = [];
+  const zoom = { i: [], v: [], on: [] };
   for (let n = 0; n < N; n++) {
     const tt = n * dt;
     const err = vc / div - s.Vref;
@@ -888,11 +991,12 @@ function simBuck(s) {
     vc += dt * (iL - vc / s.Rn) / Cc;
     imin = Math.min(imin, iL); imax = Math.max(imax, iL); peakV = Math.max(peakV, vc); peakI = Math.max(peakI, iL);
     if (tt > 0.025) { sumV += vc; cnt++; Dlast = D; }
+    if (tt > 0.03 - 3 * T && n % 2 === 0) { zoom.i.push(iL); zoom.v.push(vc); zoom.on.push(on ? 1 : 0); }
     if (n % per === per - 1) { t.push(tt * 1e3); v.push(vc); il.push((imin + imax) / 2); ilo.push(imin); ihi.push(imax); dd.push(D); imin = 1e9; imax = -1e9; }
   }
   final = sumV / cnt;
   for (let i = t.length - 1; i >= 0; i--) if (Math.abs(v[i] - final) > 0.02 * final) { tset = t[i]; break; }
-  return { t, v, il, ilo, ihi, dd, Uout: final, D: Dlast, peakV, peakI, tset };
+  return { t, v, il, ilo, ihi, dd, zoom, Uout: final, D: Dlast, peakV, peakI, tset };
 }
 const LR7 = {
   init: { c: 'boost', Uin: 7, D: 0.43, L: 560e-6, C: 47e-6, fsw: 50e3, Rn: 48, Ub: 12, Rnb: 3.5, Rp2: 5.1e3, Cp: 150e-9, Vref: 2, Rtop: 2500 },
@@ -917,7 +1021,9 @@ const LR7 = {
     if (s.c === 'boost') {
       const r = simBoost(s);
       const idealU = s.Uin / (1 - s.D);
+      const mI = Math.max(...r.zoom.i);
       return {
+        anim: { t: r.zoom.t, plot: 2, slow: true, frames: r.zoom.t.map((_, k) => { const on = r.zoom.on[k], i = r.zoom.i[k], io = r.zoom.v[k] / s.Rn; return { iL: i, v: r.zoom.v[k], on, isw: on ? i : 0, iD: on ? 0 : i, io, iC: (on ? 0 : i) - io, eL: i / mI, dD: !on && i > 0 ? 1 : 0 }; }) },
         v: { ...r, c: 'boost' },
         readouts: [['Uвых (среднее)', fmt(r.Uout, 2) + ' В'], ['Идеально Uвх/(1−D)', fmt(idealU, 2) + ' В'], ['Пульсации Uвых', si(r.dU, 'В')], ['Расчёт Iн·D/(fC)', si(r.Uout / s.Rn * s.D / (s.fsw * s.C), 'В')],
           ['ΔIL', si(r.dI, 'А')], ['Расчёт Uвх·D/(Lf)', si(s.Uin * s.D / (s.L * s.fsw), 'А')], ['Средний IL = Iвх', si(r.IL, 'А')], ['Пуск: пик Uвых / IL', fmt(r.peakV, 1) + ' В / ' + fmt(r.peakI, 2) + ' А']],
@@ -932,7 +1038,9 @@ const LR7 = {
     }
     const r = simBuck({ Uin: s.Ub, Rn: s.Rnb, Rp2: s.Rp2, Cp: s.Cp, Vref: s.Vref, Rtop: s.Rtop });
     const target = s.Vref * (s.Rtop + 1000) / 1000;
+    const mI = Math.max(...r.zoom.i);
     return {
+      anim: { slow: true, frames: r.zoom.i.map((i, k) => { const on = r.zoom.on[k], io = r.zoom.v[k] / s.Rnb; return { iL: i, v: r.zoom.v[k], on, isw: on ? i : 0, iD: on ? 0 : i, io, iC: i - io, eL: i / mI, dD: !on && i > 0 ? 1 : 0 }; }) },
       v: { ...r, c: 'buck', target, Ub: s.Ub },
       readouts: [['Uвых (среднее)', fmt(r.Uout, 3) + ' В'], ['Задание Vref·(1+Rtop/Rbot)', fmt(target, 2) + ' В'], ['D в конце', fmt(r.D, 3)], ['Идеально Uвых/Uвх', fmt(Math.min(1, target / s.Ub), 3)],
         ['Пуск: пик Uвых', fmt(r.peakV, 1) + ' В'], ['Пуск: пик IL', fmt(r.peakI, 1) + ' А'], ['Установление ±2 %', fmt(r.tset, 1) + ' мс'], ['Ток нагрузки', fmt(r.Uout / s.Rnb, 2) + ' А']],
@@ -983,6 +1091,7 @@ const LR8 = {
       o: 'ОУ держит на R1 ровно Uоп = 3 В, ток эмиттера 3/10 = 300 мА от питания не зависит. В нагрузку идёт Iк = Iэ·β/(β+1) ≈ 294,8 мА. Запас меньше: на R1 всегда падает 3 В.',
     };
     return {
+      anim: { dc: true, frames: [{ I, q: 1, oa: 0.3, U1: I * 58 / 57 * 10 }] },
       v: { I, U, work },
       readouts: [['Ток нагрузки', fmt(I * 1e3, 1) + ' мА'], ['Напряжение на нагрузке', fmt(U, 2) + ' В'], ['Режим', work ? 'рабочая область' : 'насыщение, ток падает']],
       plots: [
@@ -1304,6 +1413,300 @@ const LABS = [
 ];
 const ALLQ = LABS.flatMap(l => Q[l.id].map(q => ({ ...q, lab: l.id })));
 
+// ---------- схемы с бегущим током ----------
+// элементы в клетках сетки: ['w', pts] провод, ['R'|'C'|'L'|'D'|'Z', x1,y1,x2,y2, подпись, ключ подсветки],
+// ['oa', x,y, подпись, ключ], ['src', x,y, подпись], ['gnd', x,y], ['npn', x,y, подпись, ключ, зеркально],
+// ['sw', x1,y1,x2,y2, подпись, ключ], ['term', x,y, подпись, сторона], ['dot', x,y], ['txt', x,y, текст, выравн.], ['box', x,y,w,h, текст], ['dash', pts], ['val', x,y, ключ, fmt, выравн.]
+function drawScheme(cv, sc, fr, flowPh) {
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth;
+  if (!W) return;
+  const u = Math.min((W - 20) / (sc.x1 - sc.x0), 30);
+  const H = (sc.y1 - sc.y0) * u + 28;
+  cv.style.height = H + 'px'; cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const ox = (W - (sc.x1 - sc.x0) * u) / 2 - sc.x0 * u, oy = 14 - sc.y0 * u;
+  const P = (x, y) => [ox + x * u, oy + y * u];
+  const ink = css('--ink'), muted = css('--muted'), amber = css('--amber'), c1 = css('--ch1'), c2 = css('--ch2'), card = css('--card');
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const line = (pts, col = ink, w = 1.6) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([x, y], i) => { const [X, Y] = P(x, y); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); };
+  const text = (x, y, t, al = 'center', col = muted, size = 11) => { g.fillStyle = col; g.font = `${size}px "JetBrains Mono", monospace`; g.textAlign = al; g.textBaseline = 'middle'; const [X, Y] = P(x, y); g.fillText(t, X, Y); };
+  const glowOf = k => k ? clamp(Math.abs(fr[k] ?? 0), 0, 1) : 0;
+  const halo = (x, y, r, a, col = amber) => { if (a <= 0.02) return; const [X, Y] = P(x, y); const gr = g.createRadialGradient(X, Y, 0, X, Y, r * u); gr.addColorStop(0, col); gr.addColorStop(1, 'transparent'); g.globalAlpha = 0.55 * a; g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r * u, 0, 7); g.fill(); g.globalAlpha = 1; };
+  // двухполюсник: выводы до корпуса длиной 1,6 клетки по центру
+  const two = (x1, y1, x2, y2, body) => {
+    const len = Math.hypot(x2 - x1, y2 - y1), dx = (x2 - x1) / len, dy = (y2 - y1) / len, b = Math.min(1.6, len * 0.8) / 2;
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    line([[x1, y1], [cx - dx * b, cy - dy * b]]); line([[cx + dx * b, cy + dy * b], [x2, y2]]);
+    g.save(); const [X, Y] = P(cx, cy); g.translate(X, Y); g.rotate(Math.atan2(dy, dx)); body(b * u); g.restore();
+    return [cx - dy * 0.75, cy + dx * 0.75 - (dx ? 0 : 0)];
+  };
+  const lab = (x1, y1, x2, y2, t) => { if (!t) return; const v = x1 === x2; const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2; text(v ? cx + 0.55 : cx, v ? cy : cy - 0.62, t, v ? 'left' : 'center', ink, 11); };
+  for (const it of sc.items) {
+    const [k] = it;
+    if (k === 'w') line(it[1]);
+    else if (k === 'dash') { g.setLineDash([4, 4]); line(it[1], muted, 1.2); g.setLineDash([]); }
+    else if (k === 'dot') { const [X, Y] = P(it[1], it[2]); g.fillStyle = ink; g.beginPath(); g.arc(X, Y, 3, 0, 7); g.fill(); }
+    else if (k === 'txt') text(it[1], it[2], it[3], it[4] || 'center', muted, 11);
+    else if (k === 'val') { const v = fr[it[3]]; if (v !== undefined) text(it[1], it[2], it[4](v), it[5] || 'left', c1, 11); }
+    else if (k === 'gnd') { const [x, y] = [it[1], it[2]]; line([[x, y], [x, y + 0.35]]); line([[x - 0.4, y + 0.35], [x + 0.4, y + 0.35]], ink, 2); line([[x - 0.25, y + 0.52], [x + 0.25, y + 0.52]], ink, 1.6); line([[x - 0.1, y + 0.68], [x + 0.1, y + 0.68]], ink, 1.4); }
+    else if (k === 'term') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 4, 0, 7); g.fill(); g.stroke(); text(it[1] + (it[4] === 'r' ? 0.4 : -0.4), it[2], it[3], it[4] === 'r' ? 'left' : 'right', ink, 11); }
+    else if (k === 'box') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.fillRect(X, Y, it[3] * u, it[4] * u); g.strokeRect(X, Y, it[3] * u, it[4] * u); text(it[1] + it[3] / 2, it[2] + it[4] / 2, it[5], 'center', ink, 11); }
+    else if (k === 'src') { const [x, y] = [it[1], it[2]]; line([[x, y - 1], [x, y - 0.6]]); line([[x, y + 0.6], [x, y + 1]]); const [X, Y] = P(x, y); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.6 * u, 0, 7); g.fill(); g.stroke(); text(x, y - 0.25, '+', 'center', ink, 12); text(x - 0.8, y, it[3], 'right', ink, 11); }
+    else if (k === 'R' || k === 'C' || k === 'L' || k === 'D' || k === 'Z') {
+      const [, x1, y1, x2, y2, t, gk] = it, a = glowOf(gk);
+      if (a) halo((x1 + x2) / 2, (y1 + y2) / 2, 1.2, a);
+      two(x1, y1, x2, y2, b => {
+        g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card;
+        if (k === 'R') { g.fillRect(-b, -0.28 * u, 2 * b, 0.56 * u); g.strokeRect(-b, -0.28 * u, 2 * b, 0.56 * u); }
+        if (k === 'C') { g.beginPath(); g.moveTo(-b, 0); g.lineTo(-0.12 * u, 0); g.moveTo(0.12 * u, 0); g.lineTo(b, 0); g.moveTo(-0.12 * u, -0.42 * u); g.lineTo(-0.12 * u, 0.42 * u); g.moveTo(0.12 * u, -0.42 * u); g.lineTo(0.12 * u, 0.42 * u); g.stroke(); }
+        if (k === 'L') { g.beginPath(); const n = 4, r = b / n; for (let i = 0; i < n; i++) g.arc(-b + r * (2 * i + 1), 0, r, Math.PI, 0); g.stroke(); }
+        if (k === 'D' || k === 'Z') {
+          const s = 0.34 * u; g.beginPath(); g.moveTo(-b, 0); g.lineTo(-s, 0); g.moveTo(s, 0); g.lineTo(b, 0); g.stroke();
+          g.fillStyle = a > 0.3 ? amber : card; g.beginPath(); g.moveTo(-s, -s); g.lineTo(-s, s); g.lineTo(s, 0); g.closePath(); g.fill(); g.stroke();
+          g.beginPath(); g.moveTo(s, -s); g.lineTo(s, s); if (k === 'Z') { g.moveTo(s, -s); g.lineTo(s - 0.15 * u, -s); g.moveTo(s, s); g.lineTo(s + 0.15 * u, s); } g.stroke();
+        }
+      });
+      lab(x1, y1, x2, y2, t);
+    }
+    else if (k === 'sw') {
+      const [, x1, y1, x2, y2, t, gk] = it, on = glowOf(gk) > 0.5;
+      if (on) halo((x1 + x2) / 2, (y1 + y2) / 2, 1.1, 1);
+      const len = Math.hypot(x2 - x1, y2 - y1), dx = (x2 - x1) / len, dy = (y2 - y1) / len;
+      const a1 = [x1 + dx * 0.5 * len - dx * 0.6, y1 + dy * 0.5 * len - dy * 0.6], a2 = [x1 + dx * 0.5 * len + dx * 0.6, y1 + dy * 0.5 * len + dy * 0.6];
+      line([[x1, y1], a1]); line([a2, [x2, y2]]);
+      line([a1, on ? a2 : [a2[0] + (dy ? -0.75 : 0), a2[1] + (dx ? -0.75 : 0)]], on ? amber : ink, 2.4);
+      const [X, Y] = P(...a1); g.fillStyle = ink; g.beginPath(); g.arc(X, Y, 2.6, 0, 7); g.fill();
+      lab(x1, y1, x2, y2, t + (on ? ' вкл' : ' выкл'));
+    }
+    else if (k === 'oa') {
+      const [, x, y, t, gk] = it, v = fr[gk] ?? 0, a = Math.abs(v);
+      const col = v > 0 ? c2 : c1;
+      if (a > 0.97) halo(x + 1.3, y, 2.2, 1, col);
+      const [A, B, Cc] = [P(x, y - 1.5), P(x, y + 1.5), P(x + 3, y)];
+      g.fillStyle = card; g.strokeStyle = ink; g.lineWidth = 1.8; g.beginPath(); g.moveTo(...A); g.lineTo(...B); g.lineTo(...Cc); g.closePath(); g.fill(); g.stroke();
+      g.globalAlpha = 0.25 * a; g.fillStyle = col; g.fill(); g.globalAlpha = 1;
+      text(x + 0.35, y - 1, '−', 'center', ink, 13); text(x + 0.35, y + 1, '+', 'center', ink, 13);
+      text(x + 1.1, y, t, 'center', ink, 10);
+      if (a > 0.97) text(x + 1.5, y + 1.9, 'насыщение', 'center', col, 10);
+    }
+    else if (k === 'npn') {
+      const [, x, y, t, gk, mir] = it, s = mir ? -1 : 1, on = glowOf(gk);
+      if (on > 0.1) halo(x + 0.25 * s, y, 1.5, on);
+      const bx = x - 0.35 * s;
+      const [X, Y] = P(x + 0.25 * s, y); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.95 * u, 0, 7); g.fill(); g.stroke();
+      line([[x - 1 * s, y], [bx, y]]); line([[bx, y - 0.5], [bx, y + 0.5]], ink, 2.6);
+      line([[bx, y - 0.22], [x + 1 * s, y - 1.5]]); line([[bx, y + 0.22], [x + 1 * s, y + 1.5]]);
+      const [ex, ey] = P(x + 0.62 * s, y + 0.95); g.fillStyle = ink; g.save(); g.translate(ex, ey); g.rotate(Math.atan2(1.28, 1.35 * s)); g.beginPath(); g.moveTo(5, 0); g.lineTo(-3, -3.5); g.lineTo(-3, 3.5); g.fill(); g.restore();
+      text(x + 1.4 * s, y, t, s > 0 ? 'left' : 'right', ink, 11);
+    }
+  }
+  // бегущий ток: точки вдоль пути, скорость и направление от тока
+  g.fillStyle = css('--ch2');
+  for (const [i, f] of sc.flows.entries()) {
+    const pts = f.pts.map(p => P(...p));
+    const seg = []; let tot = 0;
+    for (let k = 1; k < pts.length; k++) { const l = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); seg.push(l); tot += l; }
+    const gap = u * 0.75, off = ((flowPh[i] || 0) % gap + gap) % gap;
+    if (!f.live) continue;
+    for (let s = off; s < tot; s += gap) {
+      let d = s, k = 0; while (k < seg.length && d > seg[k]) { d -= seg[k]; k++; }
+      if (k >= seg.length) break;
+      const r = d / seg[k], X = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * r, Y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * r;
+      g.globalAlpha = 0.35 + 0.65 * f.live; g.beginPath(); g.arc(X, Y, 2.6, 0, 7); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+}
+const F = { mA: v => fmt(v * 1e3, 1) + ' мА', A: v => fmt(v, 2) + ' А', V: v => fmt(v, 2) + ' В' };
+// схемы по лабам: возвращают {x0,y0,x1,y1, items, flows:[{pts, key}]}
+const SCH = {
+  lr2(s) {
+    const it = [['src', 1, 6, 'Vin'], ['gnd', 1, 7], ['w', [[1, 5], [1, 4], [3, 4]]], ['w', [[7, 4], [9, 4]]], ['dot', 8, 4],
+      ['oa', 9, 5, 'LT1001', 'oa'], ['w', [[9, 6], [8, 6]]], ['gnd', 8, 6], ['w', [[8, 4], [8, 2], [9, 2]]], ['w', [[12, 2], [13, 2], [13, 5]]],
+      ['w', [[12, 5], [16, 5]]], ['dot', 13, 5], ['term', 16, 5, 'out', 'r'], ['val', 13.4, 6, 'vout', F.V]];
+    const zin = { int: [['R', 3, 4, 7, 4, 'R1 100к']], intp: [['R', 3, 4, 7, 4, 'R1 100к']], dif: [['C', 3, 4, 7, 4, 'C1 1,59н']], difp: [['R', 3, 4, 5, 4, ''], ['C', 5, 4, 7, 4, ''], ['txt', 4, 3.25, 'R1 500'], ['txt', 6, 4.8, 'C1 15,9н']] }[s.c];
+    const zf = { int: [['C', 9, 2, 12, 2, 'C1 795,8п']], intp: [['R', 9, 2, 12, 2, 'R2 ' + si(s.R2, '')]], dif: [['R', 9, 2, 12, 2, 'R2 50к']], difp: [['R', 9, 2, 12, 2, 'R2 50к']] }[s.c];
+    const par = { intp: ['C', 9, 0, 12, 0, 'C1 795,8п'], difp: ['C', 9, 0, 12, 0, 'C2 15,9п'] }[s.c];
+    it.push(...zin, ...zf);
+    if (par) it.push(['w', [[8, 2], [8, 0], [9, 0]]], ['w', [[12, 0], [13, 0], [13, 2]]], ['dot', 8, 2], ['dot', 13, 2], par);
+    return { x0: -1, y0: -0.6, x1: 18, y1: 8, items: it, flows: [{ pts: [[1, 5], [1, 4], [8, 4]], key: 'iin' }, { pts: [[8, 4], [8, 2], [13, 2], [13, 5]], key: 'iin' }, { pts: [[12, 5], [16, 5]], key: 'vout' }] };
+  },
+  lr3(s) {
+    if (s.c === 'sch') return {
+      x0: -1, y0: -0.8, x1: 21, y1: 10.2, items: [
+        ['term', 5, 0, '+15 В'], ['R', 5, 0, 5, 3, 'R1 8к'], ['dot', 5, 3], ['w', [[5, 3], [8, 3]]], ['R', 5, 3, 5, 6, 'R2 2,8к'], ['dot', 5, 6], ['R', 5, 6, 5, 9, ''], ['txt', 4.4, 7.5, 'R3 4,2к', 'right'], ['gnd', 5, 9],
+        ['w', [[5, 6], [6, 6]]], ['w', [[5, 9], [6, 9]]], ['npn', 7, 7.5, '', 'q', true], ['w', [[6, 9], [9, 9]]], ['D', 9, 9, 9, 7.5, 'D1'], ['w', [[8, 7.5], [9, 7.5]]], ['dot', 9, 7.5],
+        ['R', 9, 7.5, 12, 7.5, 'R_B 665к'], ['w', [[12, 7.5], [13, 7.5], [13, 4]]], ['term', 2, 5, 'Uвх'], ['w', [[2, 5], [8, 5]]],
+        ['oa', 8, 4, 'LT1001', 'oa'], ['w', [[11, 4], [13, 4]]], ['dot', 13, 4], ['R', 13, 4, 16, 4, 'R4'], ['w', [[16, 4], [18, 4]]], ['dot', 17, 4], ['Z', 17, 6, 17, 4, '', 'z'], ['gnd', 17, 6], ['term', 18, 4, 'out', 'r'],
+        ['val', 5.6, 2.3, 'vm', v => 'U− ' + fmt(v, 2)], ['val', 18, 5, 'vout', F.V], ['txt', 7.6, 9.9, 'VT1']],
+      flows: [{ pts: [[5, 0], [5, 9]], key: 'ir3' }, { pts: [[5, 6], [6, 6], [6, 9], [5, 9]], key: 'iq' }, { pts: [[13, 4], [13, 7.5], [8, 7.5]], key: 'irb' }, { pts: [[11, 4], [17, 4], [17, 6]], key: 'iz' }],
+    };
+    if (s.c === 'win') return {
+      x0: -1.5, y0: -0.8, x1: 20, y1: 11, items: [
+        ['term', 2, 0, 'Vop'], ['R', 2, 0, 2, 3, 'R1'], ['dot', 2, 3], ['R', 2, 3, 2, 5, 'R2'], ['dot', 2, 5], ['R', 2, 5, 2, 8, 'R3'], ['gnd', 2, 8],
+        ['w', [[2, 3], [4, 3], [4, 2], [8, 2]]], ['w', [[2, 5], [4, 5], [4, 8], [8, 8]]], ['txt', 3.2, 2.5, 'H'], ['txt', 3.2, 5.5, 'L'],
+        ['term', 6, 10.4, 'Uвх'], ['w', [[6, 10.4], [6, 4], [8, 4]]], ['w', [[6, 6], [8, 6]]], ['dot', 6, 6],
+        ['oa', 8, 3, 'U1', 'oa1'], ['oa', 8, 7, 'U2', 'oa2'],
+        ['D', 11, 3, 14, 3, 'D1', 'd1'], ['D', 11, 7, 14, 7, 'D2', 'd2'], ['w', [[14, 3], [15, 3], [15, 7], [14, 7]]], ['w', [[15, 5], [18, 5]]], ['dot', 15, 5], ['dot', 16, 5], ['R', 16, 5, 16, 8, 'R4 2к'], ['gnd', 16, 8], ['term', 18, 5, 'out', 'r'], ['val', 16.6, 4.3, 'vout', F.V]],
+      flows: [{ pts: [[11, 3], [15, 3], [15, 5], [16, 5], [16, 8]], key: 'i1' }, { pts: [[11, 7], [15, 7], [15, 5], [16, 5], [16, 8]], key: 'i2' }],
+    };
+    const it = [['oa', 8, 4, 'LT1001', 'oa'], ['w', [[11, 4], [14, 4]]], ['term', 14, 4, 'out', 'r'], ['val', 12, 5, 'vout', F.V], ['val', 8.2, 1.9, 'vm', v => 'U− ' + fmt(v, 2)]];
+    if (s.c === 'zero') it.push(['term', 2, 3, 'Uвх'], ['R', 2, 3, 6, 3, 'R1 10к'], ['w', [[6, 3], [8, 3]]], ['w', [[8, 5], [7, 5]]], ['gnd', 7, 5]);
+    if (s.c === 'one') it.push(['term', 2, 3, 'Uвх'], ['R', 2, 3, 6, 3, 'R1 100'], ['w', [[6, 3], [8, 3]]], ['dot', 7, 3], ['term', 2, 1, 'Uоп'], ['R', 2, 1, 6, 1, 'R2 ' + fmt(s.R2, 0)], ['w', [[6, 1], [7, 1], [7, 3]]], ['w', [[8, 5], [7, 5]]], ['R', 7, 5, 7, 7.5, 'R3'], ['gnd', 7, 7.5]);
+    if (s.c === 'two') it.push(['term', 2, 3, 'Uвх'], ['R', 2, 3, 6, 3, 'R1 100'], ['w', [[6, 3], [8, 3]]], ['term', 2, 5, 'Uоп'], ['R', 2, 5, 6, 5, 'R2 100'], ['w', [[6, 5], [8, 5]]]);
+    if (s.c === 'hys') it.push(['term', 2, 3, 'Uвх'], ['R', 2, 3, 6, 3, 'R3 10к'], ['w', [[6, 3], [8, 3]]], ['term', 2, 5, 'Uоп'], ['R', 2, 5, 6, 5, 'R1 ' + si(s.R1h, '', 2)], ['w', [[6, 5], [8, 5]]], ['dot', 7, 5],
+      ['w', [[7, 5], [7, 7]]], ['R', 7, 7, 12, 7, 'R2 10к'], ['w', [[12, 7], [12, 4]]], ['dot', 12, 4], ['val', 6.4, 6, 'vp', v => 'U+ ' + fmt(v, 2), 'right']);
+    return { x0: -1.5, y0: 0, x1: 16, y1: 8.4, items: it, flows: s.c === 'hys' ? [{ pts: [[12, 4], [12, 7], [7, 7], [7, 5]], key: 'vout' }, { pts: [[11, 4], [14, 4]], key: 'vout' }] : [{ pts: [[11, 4], [14, 4]], key: 'vout' }] };
+  },
+  lr4(s) {
+    const it = [['term', 2, 4, 'Uвх'], ['R', 2, 4, 6, 4, 'R1 10к'], ['w', [[6, 4], [8, 4]]], ['dot', 7, 4], ['oa', 8, 5, 'LT1001', 'oa'], ['w', [[8, 6], [7, 6]]], ['gnd', 7, 6],
+      ['w', [[11, 5], [16, 5]]], ['dot', 13, 5], ['term', 16, 5, 'out', 'r'], ['val', 13.4, 6, 'vout', F.V],
+      ['w', [[7, 4], [7, 0], [8, 0]]], ['w', [[12, 0], [13, 0], [13, 5]]]];
+    if (LR4C[s.c].roc) it.push(['dot', 7, 2], ['dot', 13, 2], ['w', [[7, 2], [8, 2]]], ['R', 8, 2, 12, 2, (s.c.startsWith('gus') ? 'Rос ' : 'R2 ') + si(s.K * 1e4, '', 2)], ['w', [[12, 2], [13, 2]]]);
+    const el = {
+      one: [['D', 12, 0, 8, 0, 'VD1', 'el']], two: [['D', 8, 0, 10, 0, 'VD1', 'el'], ['D', 10, 0, 12, 0, 'VD2', 'el']],
+      zen: [['Z', 8, 0, 10, 0, 'VD1', 'el'], ['Z', 12, 0, 10, 0, 'VD2', 'el']],
+      gus: [['box', 8, -0.6, 4, 1.2, 'мост + VD3'], ['w', [[8, 0], [8, 0]]]], gus0: [['box', 8, -0.6, 4, 1.2, 'мост + VD3']],
+    }[s.c];
+    it.push(...el);
+    return { x0: -1.5, y0: -1.4, x1: 18, y1: 7, items: it, flows: [{ pts: [[2, 4], [7, 4]], key: 'iin', norm: 'iin' }, ...(LR4C[s.c].roc ? [{ pts: [[7, 4], [7, 2], [13, 2], [13, 5]], key: 'ir2', norm: 'iin' }] : []), { pts: [[7, 2], [7, 0], [13, 0], [13, 2]], key: 'iel', norm: 'iin' }, { pts: [[11, 5], [16, 5]], key: 'vout' }] };
+  },
+  lr5(s) {
+    const out = (x) => [['w', [[x, 5], [17, 5]]], ['term', 17, 5, 'out', 'r'], ['val', 14.5, 6, 'vout', v => fmt(v, 2) + ' В']];
+    if (s.c === 'lpf') return { x0: -1.5, y0: -0.8, x1: 19, y1: 7.2, items: [['term', 2, 4, 'in'], ['R', 2, 4, 6, 4, 'R1 636,6'], ['w', [[6, 4], [8, 4]]], ['dot', 7, 4], ['oa', 8, 5, 'LT1001', 'oa'], ['w', [[8, 6], [7, 6]]], ['gnd', 7, 6],
+      ['w', [[7, 4], [7, 0], [8, 0]]], ['dot', 7, 2], ['w', [[7, 2], [8, 2]]], ['R', 8, 2, 12, 2, 'R2 3180'], ['C', 8, 0, 12, 0, 'C1 ' + si(10e-9 * s.k, 'Ф', 2)], ['w', [[12, 0], [13, 0], [13, 5]]], ['w', [[12, 2], [13, 2]]], ['dot', 13, 2], ['dot', 13, 5], ...out(11)],
+      flows: [{ pts: [[2, 4], [7, 4]], key: 'vin' }, { pts: [[11, 5], [17, 5]], key: 'vout' }] };
+    if (s.c === 'hpf1') return { x0: -1.5, y0: -0.8, x1: 19, y1: 9.2, items: [['term', 2, 6, 'in'], ['C', 2, 6, 6, 6, 'C1 ' + si(10e-9 * s.k, 'Ф', 2)], ['w', [[6, 6], [8, 6]]], ['dot', 7, 6], ['R', 7, 6, 7, 8.5, 'R1 2650'], ['gnd', 7, 8.5],
+      ['oa', 8, 5, 'LT1001', 'oa'], ['R', 4, 4, 8, 4, 'R2 1к'], ['gnd', 4, 4], ['dot', 7, 4], ['w', [[7, 4], [7, 2], [8, 2]]], ['R', 8, 2, 12, 2, 'R3 5к'], ['w', [[12, 2], [13, 2], [13, 5]]], ['dot', 13, 5], ...out(11)],
+      flows: [{ pts: [[2, 6], [7, 6]], key: 'vin' }, { pts: [[11, 5], [17, 5]], key: 'vout' }] };
+    if (s.c === 'notch') return { x0: -1, y0: -0.6, x1: 19, y1: 10.8, items: [['term', 1, 3, 'in'], ['R', 1, 3, 5, 3, 'R1 397,9'], ['dot', 5, 3], ['R', 5, 3, 9, 3, 'R2 397,9'], ['C', 5, 3, 5, 5.2, 'C3'], ['gnd', 5, 5.2],
+      ['w', [[1, 3], [1, 7], [2, 7]]], ['dot', 1, 3], ['C', 2, 7, 5, 7, 'C1'], ['dot', 5, 7], ['C', 5, 7, 8, 7, 'C2'], ['w', [[8, 7], [9, 7], [9, 3]]], ['dot', 9, 5], ['w', [[9, 5], [11, 5]]],
+      ['R', 5, 7, 5, 10, 'R3 198,9'], ['w', [[5, 10], [15, 10], [15, 4]]], ['oa', 11, 4, 'LT1001', 'oa'], ['w', [[11, 3], [11, 1], [15, 1], [15, 4]]], ['w', [[14, 4], [17, 4]]], ['dot', 15, 4], ['term', 17, 4, 'out', 'r'], ['val', 15.4, 5, 'vout', v => fmt(v, 3) + ' В']],
+      flows: [{ pts: [[1, 3], [9, 3]], key: 'vin' }, { pts: [[1, 3], [1, 7], [9, 7]], key: 'vin' }, { pts: [[14, 4], [17, 4]], key: 'vout' }] };
+    const hp = s.c === 'hpf2', e = hp ? ['C1', 'R1', 'C2', 'C3', 'R2'] : ['R1', 'R2', 'C1', 'C2', 'R3'], ty = hp ? ['C', 'R', 'C', 'C', 'R'] : ['R', 'R', 'C', 'C', 'R'];
+    return { x0: -1, y0: -0.8, x1: 19, y1: 8, items: [['term', 1, 4, 'in'], [ty[0], 1, 4, 5, 4, e[0]], ['dot', 5, 4], [ty[1], 5, 4, 5, 7, e[1]], ['gnd', 5, 7], ['w', [[5, 4], [5, 0], [6, 0]]], [ty[2], 6, 0, 11, 0, e[2]], ['w', [[11, 0], [14, 0], [14, 5]]],
+      [ty[3], 5, 4, 9, 4, e[3]], ['w', [[9, 4], [10, 4]]], ['dot', 9, 4], ['w', [[9, 4], [9, 2], [10, 2]]], [ty[4], 10, 2, 13, 2, e[4]], ['w', [[13, 2], [14, 2]]], ['dot', 14, 2], ['oa', 10, 5, 'LT1001', 'oa'], ['w', [[10, 6], [9, 6]]], ['gnd', 9, 6], ['dot', 14, 5], ...out(13)],
+      flows: [{ pts: [[1, 4], [5, 4]], key: 'vin' }, { pts: [[13, 5], [17, 5]], key: 'vout' }] };
+  },
+  lr6(s) {
+    if (s.c === 'p') return { x0: -1.5, y0: 0.6, x1: 14, y1: 6.2, items: [['src', 1, 4, 'Uвх'], ['gnd', 1, 5], ['w', [[1, 3], [1, 2], [3, 2]]], ['R', 3, 2, 6, 2, 'R1 400'], ['w', [[6, 2], [10, 2]]], ['dot', 7, 2], ['w', [[7, 2], [7, 3]]], ['Z', 7, 5, 7, 3, 'VD1 6 В', 'z'], ['gnd', 7, 5],
+      ['R', 10, 2, 10, 5, 'Rн'], ['gnd', 10, 5], ['val', 4.5, 2.75, 'I1', F.mA, 'center'], ['val', 7.6, 5.4, 'Iz', F.mA], ['val', 10.6, 1.3, 'U', v => fmt(v, 3) + ' В']],
+      flows: [{ pts: [[1, 3], [1, 2], [7, 2]], key: 'I1' }, { pts: [[7, 2], [7, 5]], key: 'Iz' }, { pts: [[7, 2], [10, 2], [10, 5]], key: 'In' }] };
+    if (s.c === 'f') return { x0: -1.5, y0: 0.4, x1: 15, y1: 8.8, items: [['src', 1, 6, 'Uвх'], ['gnd', 1, 7], ['w', [[1, 5], [1, 1], [9, 1], [9, 2]]], ['dot', 4, 1], ['R', 4, 1, 4, 3.5, 'R1 330'], ['dot', 4, 3.5], ['w', [[4, 3.5], [7, 3.5]]], ['w', [[4, 3.5], [4, 4.5]]], ['Z', 4, 7, 4, 4.5, 'VD1 6,5', 'z'], ['gnd', 4, 7],
+      ['npn', 8, 3.5, 'Q1', 'q'], ['w', [[9, 5], [12, 5]]], ['R', 12, 5, 12, 8, 'Rн'], ['gnd', 12, 8], ['val', 9.4, 1.6, 'In', F.A], ['val', 5.5, 4.1, 'Ib', v => 'Iб ' + F.mA(v), 'center'], ['val', 12.6, 4.4, 'U', v => fmt(v, 3) + ' В']],
+      flows: [{ pts: [[1, 5], [1, 1], [9, 1], [9, 2]], key: 'In' }, { pts: [[9, 5], [12, 5], [12, 8]], key: 'In' }, { pts: [[4, 1], [4, 3.5]], key: 'I1' }, { pts: [[4, 3.5], [7, 3.5]], key: 'Ib' }, { pts: [[4, 3.5], [4, 7]], key: 'Iz' }] };
+    return { x0: -1.5, y0: 0.4, x1: 16, y1: 9, items: [['src', 1, 5, 'Uвх'], ['gnd', 1, 6], ['w', [[1, 4], [1, 1], [9, 1], [9, 2]]], ['npn', 8, 3.5, 'Q3', 'q'], ['w', [[9, 5], [13, 5]]], ['dot', 11, 5], ['R', 13, 5, 13, 8, 'Rн'], ['gnd', 13, 8],
+      ['box', 3, 6.2, 6, 1.6, 'Q1, Q2, D1, D2'], ['w', [[11, 5], [11, 7], [9, 7]]], ['w', [[3.5, 6.2], [3.5, 3.5], [7, 3.5]]], ['txt', 6, 8.5, 'сравнение выхода с опорой'], ['val', 9.4, 1.6, 'In', F.A], ['val', 13.6, 4.4, 'U', v => fmt(v, 3) + ' В']],
+      flows: [{ pts: [[1, 4], [1, 1], [9, 1], [9, 2]], key: 'In' }, { pts: [[9, 5], [13, 5], [13, 8]], key: 'In' }, { pts: [[11, 5], [11, 7], [9, 7]], key: 'Ifb' }] };
+  },
+  lr7(s) {
+    if (s.c === 'boost') return { x0: -1.5, y0: 0.4, x1: 16, y1: 6.2, items: [['src', 1, 4, 'Uвх'], ['gnd', 1, 5], ['w', [[1, 3], [1, 2], [2, 2]]], ['L', 2, 2, 6, 2, 'L1', 'eL'], ['w', [[6, 2], [7, 2]]], ['dot', 7, 2], ['sw', 7, 2, 7, 5, 'M1', 'on'], ['gnd', 7, 5],
+      ['D', 7, 2, 10, 2, 'D1', 'dD'], ['w', [[10, 2], [14, 2]]], ['dot', 11, 2], ['C', 11, 2, 11, 5, 'C1'], ['gnd', 11, 5], ['R', 14, 2, 14, 5, 'Rн'], ['gnd', 14, 5], ['val', 2.5, 3.1, 'iL', v => 'IL ' + F.A(v)], ['val', 11.6, 1.2, 'v', F.V]],
+      flows: [{ pts: [[1, 3], [1, 2], [7, 2]], key: 'iL' }, { pts: [[7, 2], [7, 5]], key: 'isw' }, { pts: [[7, 2], [11, 2]], key: 'iD' }, { pts: [[11, 2], [11, 5]], key: 'iC' }, { pts: [[11, 2], [14, 2], [14, 5]], key: 'io' }] };
+    return { x0: -1.5, y0: 0.4, x1: 18, y1: 8.2, items: [['src', 1, 4, 'Uвх'], ['gnd', 1, 5], ['w', [[1, 3], [1, 2], [2, 2]]], ['sw', 2, 2, 5, 2, 'M1', 'on'], ['w', [[5, 2], [7, 2]]], ['dot', 6, 2], ['w', [[6, 2], [6, 3]]], ['D', 6, 5, 6, 3, 'D1', 'dD'], ['gnd', 6, 5],
+      ['L', 7, 2, 11, 2, 'L1', 'eL'], ['w', [[11, 2], [16, 2]]], ['dot', 12, 2], ['C', 12, 2, 12, 5, 'C1'], ['gnd', 12, 5], ['R', 15, 2, 15, 5, 'Rн'], ['gnd', 15, 5], ['dot', 16, 2],
+      ['box', 7, 6.2, 7, 1.4, 'делитель → ПИ → ШИМ'], ['dash', [[16, 2], [16, 6.9], [14, 6.9]]], ['dash', [[7, 6.9], [3.5, 6.9], [3.5, 2.6]]], ['val', 7.5, 3.1, 'iL', v => 'IL ' + F.A(v)], ['val', 16.4, 1.2, 'v', F.V]],
+      flows: [{ pts: [[1, 3], [1, 2], [6, 2]], key: 'isw' }, { pts: [[6, 5], [6, 2]], key: 'iD' }, { pts: [[6, 2], [12, 2]], key: 'iL' }, { pts: [[12, 2], [12, 5]], key: 'iC' }, { pts: [[12, 2], [15, 2], [15, 5]], key: 'io' }] };
+  },
+  lr8(s) {
+    if (s.c === 'o') return { x0: -1.5, y0: -0.8, x1: 13, y1: 9.6, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [8, 0]]], ['R', 8, 0, 8, 2, 'Rн'], ['npn', 7, 3.5, 'Q1', 'q'], ['dot', 8, 5], ['R', 8, 5, 8, 8, 'R1 10'], ['gnd', 8, 8],
+      ['oa', 2, 3.5, 'LT1001', 'oa'], ['w', [[5, 3.5], [6, 3.5]]], ['term', 0, 4.5, 'Uоп 3 В'], ['w', [[0, 4.5], [2, 4.5]]], ['w', [[8, 5], [10, 5], [10, 9], [1, 9], [1, 2.5], [2, 2.5]]], ['val', 9.6, 1, 'I', v => F.mA(v)], ['val', 8.6, 6.5, 'U1', v => fmt(v, 2) + ' В']],
+      flows: [{ pts: [[1, 0], [8, 0], [8, 2]], key: 'I' }, { pts: [[8, 5], [8, 8]], key: 'I' }] };
+    if (s.c === 'w') return { x0: -1.5, y0: -0.8, x1: 13, y1: 10.4, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [9, 0]]], ['R', 3, 0, 3, 3, 'R1'], ['dot', 3, 3], ['w', [[3, 3], [5, 3]]], ['R', 9, 0, 9, 1.5, 'Rн'], ['npn', 6, 3, 'T3', 'q'], ['w', [[3, 3], [3, 5.5]]],
+      ['npn', 4, 7, 'T1', 'q', true], ['npn', 8, 7, 'T2', 'q'], ['w', [[5, 7], [7, 7]]], ['w', [[7, 4.5], [9, 4.5], [9, 5.5]]], ['dot', 9, 5], ['w', [[9, 5], [10.5, 5], [10.5, 6.2], [6, 6.2], [6, 7]]], ['dot', 6, 7],
+      ['R', 3, 8.5, 3, 10, 'Rэ1'], ['R', 9, 8.5, 9, 10, 'Rэ2'], ['gnd', 3, 10], ['gnd', 9, 10], ['val', 10.4, 0.8, 'I', v => F.mA(v)]],
+      flows: [{ pts: [[9, 0], [9, 1.5]], key: 'I' }, { pts: [[3, 0], [3, 3]], key: 'I' }, { pts: [[9, 8.5], [9, 10]], key: 'I' }] };
+    return { x0: -1.5, y0: -0.8, x1: 13, y1: 9.4, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [9, 0]]], ['R', 3, 0, 3, 3, 'R1'], ['dot', 3, 3], ['w', [[3, 3], [6, 3], [6, 4.5]]], ['dot', 6, 4.5], ['R', 9, 0, 9, 3, 'Rн'],
+      ['npn', 4, 4.5, 'T1', 'q', true], ['npn', 8, 4.5, 'T2', 'q'], ['w', [[5, 4.5], [7, 4.5]]], ['R', 3, 6, 3, 8.5, 'Rэ1 10'], ['R', 9, 6, 9, 8.5, 'Rэ2 10'], ['gnd', 3, 8.5], ['gnd', 9, 8.5], ['val', 10.4, 1.5, 'I', v => F.mA(v)]],
+      flows: [{ pts: [[9, 0], [9, 3]], key: 'I' }, { pts: [[3, 0], [3, 3]], key: 'I' }, { pts: [[9, 6], [9, 8.5]], key: 'I' }] };
+  },
+};
+
+// ---------- звук и эффекты ----------
+let actx = null, soundOn = (() => { try { return localStorage.getItem('eusu-sound') !== '0'; } catch (e) { return true; } })();
+function tone(seq) {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    let t = actx.currentTime;
+    for (const [f, d, type = 'triangle', vol = 0.12] of seq) {
+      const o = actx.createOscillator(), gn = actx.createGain();
+      o.type = type; o.frequency.value = f; gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(gn).connect(actx.destination); o.start(t); o.stop(t + d); t += d * 0.8;
+    }
+  } catch (e) {}
+}
+const SND = { ok: () => tone([[660, 0.09], [990, 0.16]]), bad: () => tone([[180, 0.22, 'sawtooth', 0.08]]), win: () => tone([[523, 0.1], [659, 0.1], [784, 0.1], [1047, 0.28]]), tick: () => tone([[1200, 0.03, 'square', 0.03]]) };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function burst(x, y, n = 28) {
+  if (reduced) return;
+  const cv = $('#fx'), g = cv.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cols = [css('--ch1'), css('--ch2'), css('--amber'), css('--ok')];
+  const ps = Array.from({ length: n }, () => ({ x, y, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 9 - 2, s: 3 + Math.random() * 4, c: cols[Math.floor(Math.random() * 4)], r: Math.random() * 6 }));
+  let f = 0;
+  const step = () => {
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    for (const p of ps) { p.x += p.vx; p.y += p.vy; p.vy += 0.35; p.r += 0.2; g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c; g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); g.restore(); }
+    if (++f < 70) requestAnimationFrame(step); else g.clearRect(0, 0, innerWidth, innerHeight);
+  };
+  step();
+}
+function floatXP(el, txt) {
+  if (!el) return;
+  const r = el.getBoundingClientRect(), d = document.createElement('div');
+  d.className = 'xpfloat'; d.textContent = txt; d.style.left = (r.left + r.width / 2) + 'px'; d.style.top = r.top + 'px';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 1100);
+}
+const RANKS = [[0, 'Первокурсник'], [150, 'Лаборант'], [400, 'Схемотехник'], [800, 'Инженер стенда'], [1300, 'Укротитель LT1001']];
+const rank = xp => RANKS.filter(r => xp >= r[0]).pop()[1];
+
+// ---------- ремонт: найди неисправность по осциллограмме ----------
+const FAULTS = {
+  lr2: [
+    { q: 'Идеальный интегратор, на входе синус 0,5 В. Выход срезан сверху и снизу. Что не так?', show: { c: 'int', f: 30, amp: 0.5, wave: 'sine', ideal: 'lt' }, plot: 1, o: [
+      ['Частота слишком низкая: K = 1/(2πfRC) ≈ 67, выход упирается в ±14 В', 1, 'На 30 Гц нужно 33 В, ОУ даёт максимум 14.'], ['Сгорел C1', 0, 'Без C1 обратной связи нет вообще, выход стоял бы в насыщении постоянно, без синусоидальных участков.'], ['Слишком большая частота', 0, 'На высокой частоте K интегратора, наоборот, падает.'], ['Нет питания ОУ', 0, 'Без питания выход был бы около нуля.']] },
+    { q: 'Дифференциатор, на входе треугольник 2 кГц. Вместо прямоугольника - сплошной звон. Что не так?', show: { c: 'dif', wave: 'tri', f: 2000, amp: 0.5, ideal: 'lt' }, plot: 1, o: [
+      ['Это идеальная схема без R1: резонанс ОУ с цепью C1-R2 на ~41 кГц не гасится', 1, 'Добавь R1 последовательно с C1, и звон затухнет за 1-2 качка.'], ['Слишком маленькая амплитуда', 0, 'Амплитуда на резонанс не влияет.'], ['Сгорел R2', 0, 'Без R2 выход ушёл бы в насыщение.'], ['Плохой генератор', 0, 'Вход - ровный треугольник, звонит выход.']] },
+  ],
+  lr3: [
+    { q: 'Триггер Шмитта: характеристики при росте и спаде входа совпали. Что сломалось?', show: { c: 'sch', fault: 'open' }, plot: 1, o: [
+      ['VT1 в обрыве: R3 не закорачивается, порог всегда 7 В', 1, 'Гистерезис есть, только пока транзистор переключается.'], ['VT1 закорочен', 0, 'Тогда порог тоже один, но 3,9 В, а не 7.'], ['Пробит стабилитрон', 0, 'Стабилитрон отвечает за уровни выхода, не за пороги.'], ['Сгорел D1', 0, 'D1 защищает переход и на пороги не влияет.']] },
+    { q: 'Оконный компаратор почти всё время показывает тревогу, провалы до нуля - узкие иголки. Что не так?', show: { c: 'win', R2w: 0 }, plot: 0, o: [
+      ['R2 закорочен: H = L, окно схлопнулось в точку', 1, 'Ширину окна задаёт падение на R2.'], ['Сгорел R4', 0, 'Без R4 выход внутри окна висел бы, а не падал до нуля.'], ['Перепутаны входы U1', 0, 'Тогда сломалась бы логика выше окна.'], ['Мало Vop', 0, 'Меньшее Vop сдвинуло бы и сузило окно, но не схлопнуло.']] },
+  ],
+  lr4: [
+    { q: 'Ограничитель по схеме Гусева: вместо наклонного участка - скачок около нуля. Что не так?', show: { c: 'gus0' }, plot: 0, o: [
+      ['Не впаян Rос: без ООС схема стала компаратором', 1, 'Rос задаёт K = 5 на линейном участке.'], ['Пробит стабилитрон', 0, 'Тогда уровни ограничения были бы около 1,2 В.'], ['Слишком большой вход', 0, 'Вход на форму линейного участка не влияет.'], ['Нет R1', 0, 'Без R1 вход вообще не подан.']] },
+    { q: 'Хотели симметричное ограничение, а положительный выход 0,6 В, отрицательный -14 В. Что не так?', show: { c: 'one' }, plot: 1, o: [
+      ['Стоит один диод: он ограничивает только одну полуволну', 1, 'Для симметрии нужны встречные стабилитроны или мост.'], ['Слишком маленький K', 0, 'K влияет только на точку излома.'], ['ОУ неисправен', 0, 'ОУ честно доходит до насыщения на другой полуволне.'], ['Диод развёрнут', 0, 'Развёрнутый диод ограничил бы другую полуволну, но тоже одну.']] },
+  ],
+  lr5: [
+    { q: 'ФВЧ 1-го порядка: на высоких частотах коэффициент снова падает. Что не так?', show: { c: 'hpf1', ideal: 'lt', f: 300e3 }, plot: 0, o: [
+      ['Ничего не сломано: это полоса LT1001, усилитель K = 6 работает до fT/6', 1, 'С идеальным ОУ спада бы не было.'], ['Пробит C1', 0, 'Тогда низкие частоты проходили бы без ослабления.'], ['Перепутаны R2 и R3', 0, 'Тогда K был бы 1,2, но спад остался бы.'], ['Ошибка измерения', 0, 'Нет, это реальное поведение.']] },
+    { q: 'ФНЧ: частота среза вдвое ниже расчётных 5 кГц. Что не так?', show: { c: 'lpf', k: 2, f: 2500 }, plot: 0, o: [
+      ['Конденсатор вдвое больше: fср = 1/(2πR2C1)', 1, 'Ёмкость ×2 даёт частоту /2.'], ['R1 вдвое больше', 0, 'R1 меняет K0, а не частоту среза.'], ['ОУ медленный', 0, 'На 5 кГц у LT1001 запас большой.'], ['Вход слишком большой', 0, 'АЧХ от амплитуды не зависит.']] },
+  ],
+  lr6: [
+    { q: 'Параметрический стабилизатор: выход просел до 4,6 В при входе 12 В. Что не так?', show: { c: 'p', Rp: 250 }, plot: 1, o: [
+      ['Нагрузка 250 Ом хочет 24 мА, а R1 даёт всего 15 мА: стабилитрону ничего не осталось', 1, 'Предел этой схемы - 400 Ом.'], ['Пробит стабилитрон', 0, 'Пробитый в КЗ стабилитрон дал бы около нуля.'], ['Мало входное', 0, 'Вход 12 В нормальный.'], ['Сгорел R1', 0, 'Без R1 выход был бы 0.']] },
+    { q: 'Параметрический стабилизатор: выход 5,1 В и плавно ползёт за входом. Что не так?', show: { c: 'p', Uin: 8.5 }, plot: 0, o: [
+      ['Мало входное: стабилитрон не пробит, работает делитель R1-Rн', 1, 'Нужно Uвх.min > Uвых + 2,5…3 В.'], ['Слишком маленькая нагрузка', 0, 'Нагрузка 600 Ом номинальная.'], ['Не тот стабилитрон', 0, 'Стабилитрон 6 В правильный.'], ['Обрыв R1', 0, 'Тогда выход был бы 0.']] },
+  ],
+  lr7: [
+    { q: 'Повышающий: на выходе 10,3 В вместо 12, пульсации в норме. Что не так?', show: { c: 'boost', Uin: 6 }, plot: 1, o: [
+      ['Вход просел до 6 В, а без обратной связи D не подстраивается', 1, 'Uвых = Uвх/(1 − D). Нужно D ≈ 0,51.'], ['Мала ёмкость', 0, 'Ёмкость влияет на пульсации, а не на среднее.'], ['Мала индуктивность', 0, 'L влияет на пульсации тока.'], ['Пробит диод', 0, 'Тогда выход замкнулся бы на точку X.']] },
+    { q: 'Повышающий: среднее 12 В, но пульсации выхода выросли вчетверо. Что не так?', show: { c: 'boost', C: 12e-6 }, plot: 2, o: [
+      ['Высохла ёмкость: ΔU = Iн·D/(f·C)', 1, 'C в 4 раза меньше - пульсации в 4 раза больше.'], ['Мала индуктивность', 0, 'Тогда выросли бы пульсации тока катушки.'], ['Не та частота ШИМ', 0, 'Частота изменила бы обе пульсации.'], ['Большая нагрузка', 0, 'Нагрузка номинальная.']] },
+  ],
+  lr8: [
+    { q: 'Источник на ОУ: ток упал с 295 до 145 мА. Что не так?', show: { c: 'o', Rn: 70 }, plot: 0, o: [
+      ['Нагрузка 70 Ом слишком велика: транзистор в насыщении, на нагрузке не больше ~9 В', 1, 'Рабочая область этой схемы - до 30 Ом.'], ['Упала опора', 0, 'Опора 3 В отдельная.'], ['Сгорел R1', 0, 'Без R1 ток был бы 0.'], ['ОУ без ОС', 0, 'ОС на месте.']] },
+    { q: 'Зеркало с Rэ: ток вырос до 127 мА при той же нагрузке. Что не так?', show: { c: 'm', E: 15 }, plot: 1, o: [
+      ['Поднялось питание: опорный ток задан R1 прямо от питания', 1, '+9 мА на каждый вольт.'], ['Пробит T2', 0, 'Тогда ток ограничивала бы только нагрузка.'], ['Уменьшился Rэ', 0, 'Возможно, но график показывает рост вместе с Eп.'], ['Перегрев', 0, 'Rэ как раз держит ток при нагреве.']] },
+  ],
+};
+
 // ---------- прогресс ----------
 const KEY = 'eusu-stand-v1';
 let progress = (() => {
@@ -1312,7 +1715,7 @@ let progress = (() => {
 })() || { xp: 0, labs: {}, deck: {} };
 LABS.forEach(l => { progress.labs[l.id] = progress.labs[l.id] || { best: 0, missions: {}, right: {} }; });
 function save() { try { localStorage.setItem(KEY, JSON.stringify(progress)); } catch (e) {} }
-function addXP(n) { progress.xp += n; $('#xp').textContent = progress.xp; }
+function addXP(n) { progress.xp += n; refreshStats(); }
 const today = () => Math.floor(Date.now() / 864e5);
 function deckPush(id) { progress.deck[id] = { box: 0, due: today() }; }
 function deckRight(id) { const d = progress.deck[id]; if (!d) return; d.box++; if (d.box >= 3) delete progress.deck[id]; else d.due = today() + [1, 3, 7][d.box]; }
@@ -1324,6 +1727,8 @@ function stars(id) {
 }
 function refreshStats() {
   $('#xp').textContent = progress.xp;
+  const rk = rank(progress.xp);
+  if ($('#rank').textContent !== rk) { if (progress.xp > 0 && current.screen) toast('Новое звание: ' + rk); $('#rank').textContent = rk; }
   $('#passed').textContent = LABS.filter(l => progress.labs[l.id].best >= 0.8).length;
   $('#due').textContent = Object.keys(progress.deck).length;
 }
@@ -1334,31 +1739,34 @@ const view = $('#view');
 function showMap() {
   current = { screen: 'map' };
   refreshStats();
-  view.innerHTML = `<section class="hero"><h2>Семь стендов и экзамен по ЭУСУ</h2>
-    <p>На каждом стенде живая схема: крутишь номиналы и частоту, графики пересчитываются. Потом подковырки «что будет, если», сначала сам предсказываешь, потом объяснение. Ошибки возвращаются в работу над ошибками через 1, 3 и 7 дней.</p></section>
+  const lit = LABS.filter(l => progress.labs[l.id].best >= 0.8).length;
+  view.innerHTML = `<section class="hero"><h2>${lit === 7 ? 'Все стенды под напряжением' : 'Лаборатория обесточена'}</h2>
+    <p>${lit === 7 ? 'Все семь стендов зачтены. Осталось сдать экзамен.' : `Под напряжением ${lit} из 7 стендов. Чтобы включить стенд, разберись со схемой, почини неисправности и сдай подковырки на 80 %.`} На стенде схема живая: ток бежит по проводам, графики пересчитываются от каждого ползунка. Ошибки возвращаются через 1, 3 и 7 дней.</p></section>
     <div class="benches">${LABS.map(l => {
       const s = stars(l.id), pass = progress.labs[l.id].best >= 0.8;
-      return `<button class="bench" type="button" data-lab="${l.id}"><span class="no">${l.no}<small>стенд</small></span>
+      return `<button class="bench" type="button" data-lab="${l.id}"><span class="no">${l.no}<small><span class="led ${pass ? 'on' : ''}"></span>${pass ? 'включён' : 'стенд'}</small></span>
         <span><h3>${l.title} ${pass ? '<span class="stamp">зачтено</span>' : ''}</h3><p>${l.sub}</p></span>
         <span class="meter" aria-label="${s} из 3">${[0, 1, 2].map(i => `<i class="${i < s ? 'on' : ''}"></i>`).join('')}</span></button>`;
     }).join('')}</div>
-    <div class="exam-card"><div><h3>Экзамен</h3><p>12 случайных вопросов по всем лабам, три жизни. Сначала идут те, на которых ты уже ошибался.</p></div>
+    <div class="exam-card"><div><h3>Экзамен</h3><p>Бой с экзаменатором: 12 вопросов по всем лабам, 45 секунд на ответ, три жизни. Серия верных ответов бьёт сильнее. Сначала идут вопросы, на которых ты уже ошибался.</p></div>
     <button class="btn red" type="button" id="exam">Начать</button></div>
-    <p class="note" style="margin-top:16px">Кружки: все задания стенда, 80 % подковырок, 100 % подковырок. Зачёт по лабе - от 80 %. Прогресс хранится в этом браузере.</p>`;
+    <p class="note" style="margin-top:16px">Кружки: все задания стенда, 80 % подковырок, 100 % подковырок. Зачёт по лабе - от 80 %. Звание растёт с XP. Прогресс хранится в этом браузере.</p>`;
   view.querySelectorAll('[data-lab]').forEach(b => b.onclick = () => openLab(b.dataset.lab, 'bench'));
   $('#exam').onclick = () => startQuiz(examSet(), 'Экзамен', null, 3);
 }
 let current = { screen: 'map' };
 function openLab(id, tab) {
+  clearInterval(quizTimer);
   const lab = LABS.find(l => l.id === id);
   current = { screen: 'lab', id, tab };
   view.innerHTML = `<section class="labhead"><span class="eyebrow">${lab.no} · ${lab.sub}</span><h2>${lab.title}</h2></section>
-    <div class="tabs" role="tablist">${[['bench', 'Стенд'], ['quiz', 'Подковырки'], ['cheat', 'Шпаргалка']].map(([k, t]) =>
+    <div class="tabs" role="tablist">${[['bench', 'Стенд'], ['repair', 'Ремонт'], ['quiz', 'Подковырки'], ['cheat', 'Шпаргалка']].map(([k, t]) =>
       `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${k === tab}">${t}</button>`).join('')}</div><div id="tabbody"></div>`;
   view.querySelectorAll('.tab').forEach(b => b.onclick = () => openLab(id, b.dataset.tab));
   const body = $('#tabbody');
   lastRender = null;
   if (tab === 'bench') buildBench(body, lab);
+  else if (tab === 'repair') startQuiz(FAULTS[id].map((f, k) => ({ ...f, id: id + '-fix' + k, t: 'c', lab: id, exp: 'Найди это на стенде: выставь те же параметры и посмотри на схему.', repair: true })), lab.no + ' · ремонт', id, 0, body);
   else if (tab === 'cheat') body.innerHTML = `<div class="cheat">${CHEAT[id].map(([h, p, f]) => `<div class="c"><h5>${h}</h5><p>${p}</p>${f ? `<span class="f">${f}</span>` : ''}</div>`).join('')}</div>`;
   else startQuiz(Q[id].map(q => ({ ...q, lab: id })), lab.no + ' · подковырки', id, 0, body);
   window.scrollTo({ top: 0 });
@@ -1374,24 +1782,55 @@ function examSet() {
   return [...due, ...spread].slice(0, 12);
 }
 
+let quizTimer = null;
 function startQuiz(qs, title, labId, lives, root = view) {
-  let i = 0, right = 0, life = lives, wrongs = [];
-  const order = labId ? qs : qs;
+  let i = 0, right = 0, life = lives, wrongs = [], combo = 0, best = 0, patience = 100;
+  const order = qs, boss = lives > 0, repair = qs.length && qs[0].repair;
   const step = () => {
-    if (i >= order.length || (lives && life <= 0)) return finish();
+    clearInterval(quizTimer);
+    if (i >= order.length || (lives && life <= 0) || (boss && patience <= 0)) return finish();
     const q = order[i], lab = LABS.find(l => l.id === q.lab);
-    root.innerHTML = `<div class="progress"><div style="width:${i / order.length * 100}%"></div></div>
+    root.innerHTML = `${boss ? `<div class="boss"><span class="who">Экзаменатор<small>терпение</small></span><div class="bar"><div id="pat" style="width:${patience}%"></div></div><span class="timer" id="tm">45</span></div>` : ''}
+      <div class="progress" style="margin-top:${boss ? 10 : 0}px"><div style="width:${i / order.length * 100}%"></div></div>
       <div class="qcard" style="margin-top:12px">
-      <div class="qmeta"><span>${title}</span><span>· ${i + 1}/${order.length}</span>${!labId ? `<span>· ${lab.no}</span>` : ''}${lives ? `<span class="lives">${'♥'.repeat(life)}${'♡'.repeat(lives - life)}</span>` : ''}</div>
-      <p class="qtext">${q.q}</p><div id="ans"></div><div id="res"></div></div>`;
+      <div class="qmeta"><span>${title}</span><span>· ${i + 1}/${order.length}</span>${!labId ? `<span>· ${lab.no}</span>` : ''}${lives ? `<span class="lives">${'♥'.repeat(life)}${'♡'.repeat(lives - life)}</span>` : ''}${combo >= 2 ? `<span class="combo">серия ×${combo}</span>` : ''}</div>
+      <p class="qtext">${q.q}</p>${q.show ? '<div class="faultplot"><canvas id="fp"></canvas></div>' : ''}<div id="ans"></div><div id="res"></div></div>`;
+    if (q.show) {
+      const sim = lab.sim, out = sim.view({ ...sim.init, ...q.show }), p = out.plots[q.plot];
+      plot($('#fp', root), p.cfg);
+      lastRender = () => { const c = $('#fp', root); if (c) plot(c, p.cfg); };
+    }
     const ans = $('#ans', root), res = $('#res', root);
+    let answered = false;
+    if (boss) {
+      let left = 45;
+      quizTimer = setInterval(() => {
+        const el = $('#tm', root); if (!el || answered) { clearInterval(quizTimer); return; }
+        left--; el.textContent = left; el.classList.toggle('low', left <= 10);
+        if (left <= 5 && left > 0) SND.tick();
+        if (left <= 0) { clearInterval(quizTimer); ans.querySelectorAll('button, input').forEach(x => x.disabled = true); done(false, 'Время вышло.'); }
+      }, 1000);
+    }
     const done = (ok, why) => {
-      if (ok) { right++; addXP(10); deckRight(q.id); progress.labs[q.lab].right[q.id] = true; }
-      else { deckPush(q.id); wrongs.push(q); if (lives) life--; }
+      if (answered) return; answered = true; clearInterval(quizTimer);
+      const card = $('.qcard', root);
+      if (ok) {
+        right++; combo++; best = Math.max(best, combo);
+        const gain = (repair ? 15 : 10) * (boss ? Math.min(3, combo) : 1);
+        addXP(gain); SND.ok(); floatXP(res, '+' + gain + ' XP');
+        const r = card.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + 40, combo >= 3 ? 40 : 22);
+        if (repair) (progress.labs[q.lab].fixed = progress.labs[q.lab].fixed || {})[q.id] = true;
+        else { deckRight(q.id); progress.labs[q.lab].right[q.id] = true; }
+        if (boss) { patience = Math.max(0, patience - 100 / 9 * (combo >= 3 ? 1.5 : 1)); const pb = $('#pat', root); if (pb) pb.style.width = patience + '%'; }
+      } else {
+        combo = 0; SND.bad(); if (!reduced) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
+        if (!repair) deckPush(q.id); wrongs.push(q); if (lives) life--;
+      }
       save(); refreshStats();
-      res.innerHTML = `<div class="verdict ${ok ? 'good' : 'bad'}"><h5>${ok ? 'Верно' : 'Неверно'}</h5>${why ? `<p>${why}</p>` : ''}<p>${q.exp}</p></div>
+      const last = !(i + 1 < order.length && !(lives && life <= 0) && !(boss && patience <= 0));
+      res.innerHTML = `<div class="verdict ${ok ? 'good' : 'bad'}"><h5>${ok ? (boss && combo >= 3 ? 'Верно, серия ×' + combo : 'Верно') : 'Неверно'}</h5>${why ? `<p>${why}</p>` : ''}<p>${q.exp}</p></div>
         ${q.say ? `<div class="say"><b>Сказать на экзамене</b>${q.say}</div>` : ''}
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="next">${i + 1 < order.length && !(lives && life <= 0) ? 'Дальше' : 'Итог'}</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="next">${last ? 'Итог' : 'Дальше'}</button>
         ${q.lab && current.screen !== 'lab' ? `<button class="btn ghost" type="button" id="tolab">Открыть стенд ${lab.no}</button>` : ''}</div>`;
       $('#next', root).onclick = () => { i++; step(); };
       const tl = $('#tolab', root); if (tl) tl.onclick = () => openLab(q.lab, 'bench');
@@ -1420,14 +1859,25 @@ function startQuiz(qs, title, labId, lives, root = view) {
     }
   };
   const finish = () => {
+    clearInterval(quizTimer);
+    const asked = Math.min(order.length, i + (i < order.length ? 1 : 0));
     const share = right / order.length;
-    if (labId) { const p = progress.labs[labId]; if (share > p.best) p.best = share; if (share >= 0.8) addXP(30); save(); refreshStats(); }
-    const grade = share >= 0.9 ? 'Отлично' : share >= 0.75 ? 'Хорошо' : share >= 0.6 ? 'Удовлетворительно' : 'Ещё разок';
+    if (labId && !repair) {
+      const p = progress.labs[labId], was = p.best >= 0.8;
+      if (share > p.best) p.best = share;
+      if (share >= 0.8) addXP(30);
+      if (!was && p.best >= 0.8) { SND.win(); burst(innerWidth / 2, innerHeight / 3, 60); toast(LABS.find(l => l.id === labId).no + ' под напряжением'); }
+      save(); refreshStats();
+    }
+    let grade = share >= 0.9 ? 'Отлично' : share >= 0.75 ? 'Хорошо' : share >= 0.6 ? 'Удовлетворительно' : 'Ещё разок';
+    if (boss) grade = patience <= 0 ? 'Сдано' : life <= 0 ? 'Пересдача' : grade;
+    if (boss && patience <= 0) { addXP(50); SND.win(); burst(innerWidth / 2, innerHeight / 3, 80); }
+    if (repair) grade = right === order.length ? 'Стенд исправен' : 'Есть что доделать';
     root.innerHTML = `<div class="summary"><span class="eyebrow mono">${title}</span><div class="grade">${grade}</div>
-      <p>Верно ${right} из ${order.length}${lives && life <= 0 ? ', жизни кончились' : ''}. ${wrongs.length ? 'Ошибки ушли в работу над ошибками и вернутся завтра.' : 'Без ошибок.'}</p>
+      <p>Верно ${right} из ${boss ? asked : order.length}${lives && life <= 0 ? ', жизни кончились' : ''}${boss ? `, лучшая серия ×${best}${patience <= 0 ? ', экзаменатор сдался досрочно' : ''}` : ''}. ${wrongs.length ? (repair ? 'Выставь эти режимы на стенде и посмотри, что происходит.' : 'Ошибки ушли в работу над ошибками и вернутся завтра.') : 'Без ошибок.'}</p>
       ${wrongs.length ? `<div class="cheat">${wrongs.map(q => `<div class="c"><h5>${LABS.find(l => l.id === q.lab).no}</h5><p>${q.q}</p><span class="f">${q.exp}</span></div>`).join('')}</div>` : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="again">Пройти ещё раз</button><button class="btn ghost" type="button" id="tomap">К стендам</button></div></div>`;
-    $('#again', root).onclick = () => labId ? openLab(labId, 'quiz') : startQuiz(examSet(), 'Экзамен', null, 3);
+    $('#again', root).onclick = () => labId ? openLab(labId, repair ? 'repair' : 'quiz') : boss ? startQuiz(examSet(), 'Экзамен', null, 3) : showReview();
     $('#tomap', root).onclick = showMap;
   };
   if (root === view) current = { screen: 'quiz' };
@@ -1444,8 +1894,12 @@ function showReview() {
   startQuiz(qs, 'Работа над ошибками', null, 0);
 }
 
-$('#home').onclick = showMap;
-$('#review').onclick = showReview;
+$('#home').onclick = () => { clearInterval(quizTimer); showMap(); };
+$('#review').onclick = () => { clearInterval(quizTimer); showReview(); };
+const sndBtn = $('#snd');
+const syncSnd = () => { sndBtn.setAttribute('aria-pressed', soundOn); sndBtn.textContent = soundOn ? 'Звук' : 'Без звука'; };
+sndBtn.onclick = () => { soundOn = !soundOn; try { localStorage.setItem('eusu-sound', soundOn ? '1' : '0'); } catch (e) {} syncSnd(); if (soundOn) SND.ok(); };
+syncSnd();
 const rerender = () => { if (lastRender) lastRender(); };
 window.addEventListener('resize', rerender);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
