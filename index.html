@@ -652,6 +652,19 @@ function periodic(st, H) {
   }
   return { t, vin, vout, clipped };
 }
+function lr2Frames(s, r) {
+  // токи ветвей в амперах: вход, основная ветвь ОС (R2 или C1), параллельная ветвь
+  const n = r.t.length, dt = (r.t[1] - r.t[0]) / 1e3;
+  return r.t.map((_, i) => {
+    const vo = r.vout[i], dvo = (r.vout[Math.min(n - 1, i + 1)] - r.vout[Math.max(0, i - 1)]) / (2 * dt);
+    let iin, main, side = 0;
+    if (s.c === 'int') { iin = r.vin[i] / 1e5; main = iin; }
+    if (s.c === 'intp') { iin = r.vin[i] / 1e5; main = -vo / s.R2; side = iin - main; }
+    if (s.c === 'dif') { iin = -vo / 5e4; main = iin; }
+    if (s.c === 'difp') { main = -vo / 5e4; side = -15.915e-12 * dvo; iin = main + side; }
+    return { iin, main, side, vout: vo, oa: vo / OA.Usat };
+  });
+}
 const LR2 = {
   init: { c: 'int', wave: 'sine', f: 2000, amp: 0.5, R2: 330e3, ideal: 'lt' },
   controls: s => [
@@ -683,7 +696,7 @@ const LR2 = {
       difp: 'R1 останавливает рост K на уровне R2/R1 = 100 и гасит резонанс, C2 режет частоты выше 200 кГц. С LT1001 полки 100 нет: усиления ОУ не хватает уже после 12,6 кГц.',
     };
     return {
-      anim: { t: r.t, plot: 1, frames: r.t.map((_, i) => ({ iin: s.c.startsWith('int') ? r.vin[i] : -r.vout[i], vout: r.vout[i], oa: r.vout[i] / OA.Usat })) },
+      anim: { t: r.t, plot: 1, frames: lr2Frames(s, r) },
       v: { K, clipped: r.clipped, fpk },
       readouts: ro,
       plots: [
@@ -928,7 +941,7 @@ const LR5 = {
     const mag = Hs.map(h => db(cabs(h))), pha = Hs.map(h => carg(h) * 180 / Math.PI);
     const h0 = nodal(s.f, net, id), K = cabs(h0);
     const V = n => nodal.last.x[nodal.last.idx[n]], jw = [0, 2 * Math.PI * s.f], one = [1, 0];
-    const cur = { lpf: () => ({ iin: cmul(csub(one, V('m')), [1 / 636.6, 0]) }), hpf1: () => ({ iin: cmul(csub(one, V('p')), cmul(jw, [10e-9 * s.k, 0])), ifb: cmul(V('m'), [1e-3, 0]) }),
+    const cur = { lpf: () => ({ iin: cmul(csub(one, V('m')), [1 / 636.6, 0]), ir: cmul(csub(V('m'), V('o')), [1 / 3180, 0]), ic: cmul(csub(V('m'), V('o')), cmul(jw, [10e-9 * s.k, 0])) }), hpf1: () => ({ iin: cmul(csub(one, V('p')), cmul(jw, [10e-9 * s.k, 0])), ifb: cmul(V('m'), [1e-3, 0]) }),
       hpf2: () => ({ iin: cmul(csub(one, V('a')), cmul(jw, [440.6e-9 * s.k, 0])), im: cmul(csub(V('a'), V('m')), cmul(jw, [587.5e-9 * s.k, 0])) }),
       bp: () => ({ iin: cmul(csub(one, V('a')), [1 / 110.5, 0]), im: cmul(csub(V('a'), V('m')), cmul(jw, [10e-9 * s.k, 0])) }),
       notch: () => ({ ir: cmul(csub(one, V('a')), [1 / 397.9, 0]), ic: cmul(csub(one, V('b')), cmul(jw, [10e-9 * s.k, 0])) }) }[s.c]();
@@ -1579,7 +1592,12 @@ function drawScheme(cv, sc, fr, flowPh) {
   const ink = css('--ink'), muted = css('--muted'), amber = css('--amber'), c1 = css('--ch1'), c2 = css('--ch2'), card = css('--card');
   g.lineCap = 'round'; g.lineJoin = 'round';
   const line = (pts, col = ink, w = 1.6) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([x, y], i) => { const [X, Y] = P(x, y); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); };
-  const text = (x, y, t, al = 'center', col = muted, size = 11) => { g.fillStyle = col; g.font = `${size}px "JetBrains Mono", monospace`; g.textAlign = al; g.textBaseline = 'middle'; const [X, Y] = P(x, y); g.fillText(t, X, Y); };
+  // для проверки наложений: window.SCHDBG = {txt:[], body:[], seg:[]}
+  const dbg = window.SCHDBG;
+  const box = (x0, y0, x1, y1, kind, name) => { if (dbg) dbg[kind].push({ x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1), name }); };
+  const fsz = sz => Math.min(sz, Math.max(8.5, u * 0.4));
+  const text = (x, y, t, al = 'center', col = muted, size = 11, inner = false) => { if (!t) return; size = fsz(size); g.fillStyle = col; g.font = `${size}px "JetBrains Mono", monospace`; g.textAlign = al; g.textBaseline = 'middle'; const [X, Y] = P(x, y); g.fillText(t, X, Y);
+    if (!inner) { const w = g.measureText(t).width, x0 = al === 'left' ? X : al === 'right' ? X - w : X - w / 2; box(x0, Y - size / 2, x0 + w, Y + size / 2, 'txt', t); } };
   const glowOf = k => k ? clamp(Math.abs(fr[k] ?? 0), 0, 1) : 0;
   const halo = (x, y, r, a, col = amber) => { if (a <= 0.02) return; const [X, Y] = P(x, y); const gr = g.createRadialGradient(X, Y, 0, X, Y, r * u); gr.addColorStop(0, col); gr.addColorStop(1, 'transparent'); g.globalAlpha = 0.55 * a; g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r * u, 0, 7); g.fill(); g.globalAlpha = 1; };
   // двухполюсник: выводы до корпуса длиной 1,6 клетки по центру
@@ -1588,22 +1606,28 @@ function drawScheme(cv, sc, fr, flowPh) {
     const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
     line([[x1, y1], [cx - dx * b, cy - dy * b]]); line([[cx + dx * b, cy + dy * b], [x2, y2]]);
     g.save(); const [X, Y] = P(cx, cy); g.translate(X, Y); g.rotate(Math.atan2(dy, dx)); body(b * u); g.restore();
+    { const hw = 0.4 * u, hl = b * u; box(X - (dx ? hl : hw), Y - (dx ? hw : hl), X + (dx ? hl : hw), Y + (dx ? hw : hl), 'body', 'el'); }
+    if (dbg) { dbg.seg.push([P(x1, y1), P(cx - dx * b, cy - dy * b)]); dbg.seg.push([P(cx + dx * b, cy + dy * b), P(x2, y2)]); }
     return [cx - dy * 0.75, cy + dx * 0.75 - (dx ? 0 : 0)];
   };
-  const lab = (x1, y1, x2, y2, t) => { if (!t) return; const v = x1 === x2; const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2; text(v ? cx + 0.55 : cx, v ? cy : cy - 0.62, t, v ? 'left' : 'center', ink, 11); };
+  const lab = (x1, y1, x2, y2, t, side) => {
+    if (!t) return; const v = x1 === x2, cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    if (v) { const off = 0.45 + 4 / u; text(side === 'l' ? cx - off : cx + off, cy, t, side === 'l' ? 'right' : 'left', ink, 11); }
+    else { const off = 0.42 + (fsz(11) / 2 + 2) / u; text(cx, side === 'b' ? cy + off : cy - off, t, 'center', ink, 11); }
+  };
   for (const it of sc.items) {
     const [k] = it;
-    if (k === 'w') line(it[1]);
+    if (k === 'w') { line(it[1]); if (dbg) for (let q = 1; q < it[1].length; q++) dbg.seg.push([P(...it[1][q - 1]), P(...it[1][q])]); }
     else if (k === 'dash') { g.setLineDash([4, 4]); line(it[1], muted, 1.2); g.setLineDash([]); }
     else if (k === 'dot') { const [X, Y] = P(it[1], it[2]); g.fillStyle = ink; g.beginPath(); g.arc(X, Y, 3, 0, 7); g.fill(); }
     else if (k === 'txt') text(it[1], it[2], it[3], it[4] || 'center', muted, 11);
     else if (k === 'val') { const v = fr[it[3]]; if (v !== undefined) text(it[1], it[2], it[4](v), it[5] || 'left', c1, 11); }
-    else if (k === 'gnd') { const [x, y] = [it[1], it[2]]; line([[x, y], [x, y + 0.35]]); line([[x - 0.4, y + 0.35], [x + 0.4, y + 0.35]], ink, 2); line([[x - 0.25, y + 0.52], [x + 0.25, y + 0.52]], ink, 1.6); line([[x - 0.1, y + 0.68], [x + 0.1, y + 0.68]], ink, 1.4); }
-    else if (k === 'term') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 4, 0, 7); g.fill(); g.stroke(); text(it[1] + (it[4] === 'r' ? 0.4 : -0.4), it[2], it[3], it[4] === 'r' ? 'left' : 'right', ink, 11); }
-    else if (k === 'box') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.fillRect(X, Y, it[3] * u, it[4] * u); g.strokeRect(X, Y, it[3] * u, it[4] * u); text(it[1] + it[3] / 2, it[2] + it[4] / 2, it[5], 'center', ink, 11); }
-    else if (k === 'src') { const [x, y] = [it[1], it[2]]; line([[x, y - 1], [x, y - 0.6]]); line([[x, y + 0.6], [x, y + 1]]); const [X, Y] = P(x, y); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.6 * u, 0, 7); g.fill(); g.stroke(); text(x, y - 0.25, '+', 'center', ink, 12); text(x - 0.8, y, it[3], 'right', ink, 11); }
+    else if (k === 'gnd') { const [x, y] = [it[1], it[2]]; line([[x, y], [x, y + 0.35]]); line([[x - 0.4, y + 0.35], [x + 0.4, y + 0.35]], ink, 2); line([[x - 0.25, y + 0.52], [x + 0.25, y + 0.52]], ink, 1.6); line([[x - 0.1, y + 0.68], [x + 0.1, y + 0.68]], ink, 1.4); box(...P(x - 0.4, y), ...P(x + 0.4, y + 0.7), 'body', 'gnd'); }
+    else if (k === 'term') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 4, 0, 7); g.fill(); g.stroke(); box(X - 4, Y - 4, X + 4, Y + 4, 'body', 'term'); text(it[1] + (it[4] === 'r' ? 0.4 : -0.4), it[2], it[3], it[4] === 'r' ? 'left' : 'right', ink, 11); }
+    else if (k === 'box') { const [X, Y] = P(it[1], it[2]); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.fillRect(X, Y, it[3] * u, it[4] * u); g.strokeRect(X, Y, it[3] * u, it[4] * u); box(X, Y, X + it[3] * u, Y + it[4] * u, 'body', 'box'); text(it[1] + it[3] / 2, it[2] + it[4] / 2, it[5], 'center', ink, 11, true); }
+    else if (k === 'src') { const [x, y] = [it[1], it[2]]; line([[x, y - 1], [x, y - 0.6]]); line([[x, y + 0.6], [x, y + 1]]); const [X, Y] = P(x, y); g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.6 * u, 0, 7); g.fill(); g.stroke(); box(X - 0.6 * u, Y - 0.6 * u, X + 0.6 * u, Y + 0.6 * u, 'body', 'src'); text(x, y - 0.25, '+', 'center', ink, 12, true); text(x - 0.8, y, it[3], 'right', ink, 11); }
     else if (k === 'R' || k === 'C' || k === 'L' || k === 'D' || k === 'Z') {
-      const [, x1, y1, x2, y2, t, gk] = it, a = glowOf(gk);
+      const [, x1, y1, x2, y2, t, gk, side] = it, a = glowOf(gk);
       if (a) halo((x1 + x2) / 2, (y1 + y2) / 2, 1.2, a);
       two(x1, y1, x2, y2, b => {
         g.strokeStyle = ink; g.lineWidth = 1.6; g.fillStyle = card;
@@ -1616,7 +1640,7 @@ function drawScheme(cv, sc, fr, flowPh) {
           g.beginPath(); g.moveTo(s, -s); g.lineTo(s, s); if (k === 'Z') { g.moveTo(s, -s); g.lineTo(s - 0.15 * u, -s); g.moveTo(s, s); g.lineTo(s + 0.15 * u, s); } g.stroke();
         }
       });
-      lab(x1, y1, x2, y2, t);
+      lab(x1, y1, x2, y2, t, side);
     }
     else if (k === 'sw') {
       const [, x1, y1, x2, y2, t, gk] = it, on = glowOf(gk) > 0.5;
@@ -1635,15 +1659,14 @@ function drawScheme(cv, sc, fr, flowPh) {
       const [A, B, Cc] = [P(x, y - 1.5), P(x, y + 1.5), P(x + 3, y)];
       g.fillStyle = card; g.strokeStyle = ink; g.lineWidth = 1.8; g.beginPath(); g.moveTo(...A); g.lineTo(...B); g.lineTo(...Cc); g.closePath(); g.fill(); g.stroke();
       g.globalAlpha = 0.25 * a; g.fillStyle = col; g.fill(); g.globalAlpha = 1;
-      text(x + 0.35, y - 1, '−', 'center', ink, 13); text(x + 0.35, y + 1, '+', 'center', ink, 13);
-      text(x + 1.1, y, t, 'center', ink, 10);
-      if (a > 0.97) text(x + 1.5, y + 1.9, 'насыщение', 'center', col, 10);
+      text(x + 0.35, y - 1, '−', 'center', ink, 13, true); text(x + 0.35, y + 1, '+', 'center', ink, 13, true);
+      text(x + 1.1, y, a > 0.97 ? 'насыщ.' : t, 'center', a > 0.97 ? col : ink, 10, true); box(...A, Cc[0], B[1], 'body', 'oa');
     }
     else if (k === 'npn') {
       const [, x, y, t, gk, mir] = it, s = mir ? -1 : 1, on = glowOf(gk);
       if (on > 0.1) halo(x + 0.25 * s, y, 1.5, on);
       const bx = x - 0.35 * s;
-      const [X, Y] = P(x + 0.25 * s, y); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.95 * u, 0, 7); g.fill(); g.stroke();
+      const [X, Y] = P(x + 0.25 * s, y); g.strokeStyle = ink; g.lineWidth = 1.4; g.fillStyle = card; g.beginPath(); g.arc(X, Y, 0.95 * u, 0, 7); g.fill(); g.stroke(); box(X - 0.95 * u, Y - 0.95 * u, X + 0.95 * u, Y + 0.95 * u, 'body', 'npn');
       line([[x - 1 * s, y], [bx, y]]); line([[bx, y - 0.5], [bx, y + 0.5]], ink, 2.6);
       line([[bx, y - 0.22], [x + 1 * s, y - 1.5]]); line([[bx, y + 0.22], [x + 1 * s, y + 1.5]]);
       const [ex, ey] = P(x + 0.62 * s, y + 0.95); g.fillStyle = ink; g.save(); g.translate(ex, ey); g.rotate(Math.atan2(1.28, 1.35 * s)); g.beginPath(); g.moveTo(5, 0); g.lineTo(-3, -3.5); g.lineTo(-3, 3.5); g.fill(); g.restore();
@@ -1672,7 +1695,7 @@ const F = { mA: v => fmt(v * 1e3, 1) + ' мА', A: v => fmt(v, 2) + ' А', V: v 
 const SCH = {
   lr1(s) {
     const R = (v, n) => n + ' ' + si(v * s.k, '', 2);
-    const out = [['oa', 8, 4, 'LT1001', 'oa'], ['w', [[11, 4], [15, 4]]], ['dot', 13, 4], ['term', 15, 4, 'Uвых', 'r'], ['val', 13.4, 5, 'vout', F.V], ['val', 11.2, 2.6, 'lim', v => v ? 'предел тока' : '', 'left']];
+    const out = [['oa', 8, 4, 'LT1001', 'oa'], ['w', [[11, 4], [15, 4]]], ['dot', 13, 4], ['term', 15, 4, 'Uвых', 'r'], ['val', 13.4, 5, 'vout', F.V], ['val', 13.4, 2.8, 'lim', v => v ? 'предел тока' : '', 'left']];
     if (s.c === 'diff') return { x0: -1.5, y0: 0.2, x1: 17, y1: 8.4, items: [...out, ['term', 2, 3, 'U1'], ['R', 2, 3, 6, 3, R(5e3, 'R1')], ['w', [[6, 3], [8, 3]]], ['dot', 7, 3], ['w', [[7, 3], [7, 1], [8, 1]]], ['R', 8, 1, 12, 1, R(10e3, 'R2')], ['w', [[12, 1], [13, 1], [13, 4]]],
       ['term', 2, 5, 'U2'], ['R', 2, 5, 6, 5, R(5e3, 'R3')], ['w', [[6, 5], [8, 5]]], ['dot', 7, 5], ['R', 7, 5, 7, 7.5, R(10e3 * (1 + s.mis / 100), 'R4')], ['gnd', 7, 7.5]],
       flows: [{ pts: [[2, 3], [7, 3]], key: 'i1', norm: 'iout' }, { pts: [[7, 3], [7, 1], [13, 1], [13, 4], [11, 4]], key: 'i1', norm: 'iout' }, { pts: [[2, 5], [7, 5], [7, 7.5]], key: 'i2', norm: 'iout' }] };
@@ -1680,8 +1703,8 @@ const SCH = {
       ['w', [[7.5, 3], [7.5, -1], [8, -1]]], ['R', 8, -1, 12, -1, R(10e3, 'R2')], ['w', [[12, -1], [13, -1], [13, 4]]], ['w', [[8, 5], [7, 5]]], ['gnd', 7, 5], ['txt', 6.5, 3.6, 'вирт. земля', 'right']],
       flows: [{ pts: [[2, 3], [7, 3]], key: 'i1', norm: 'ifb' }, { pts: [[2, 1], [7, 1], [7, 3]], key: 'i2', norm: 'ifb' }, { pts: [[7.5, 3], [7.5, -1], [13, -1], [13, 4], [11, 4]], key: 'ifb', norm: 'ifb' }] };
     return { x0: -1.5, y0: 0.2, x1: 17, y1: 10.4, items: [...out, ['term', 2, 5, 'U1'], ['R', 2, 5, 6, 5, R(25e3, 'R1')], ['w', [[6, 5], [8, 5]]], ['dot', 7, 5], ['term', 2, 7, 'U2'], ['R', 2, 7, 6, 7, R(50e3, 'R3')], ['w', [[6, 7], [7, 7], [7, 5]]], ['dot', 7, 7], ['R', 7, 7, 7, 9.5, R(100e3, 'R6')], ['gnd', 7, 9.5],
-      ['R', 4, 3, 8, 3, R(100e3, 'R5')], ['gnd', 4, 3], ['dot', 7, 3], ['w', [[7, 3], [7, 1], [8, 1]]], ['R', 8, 1, 12, 1, R(600e3, 'R2')], ['w', [[12, 1], [13, 1], [13, 4]]], ['val', 7.6, 6, 'up', v => 'U+ ' + fmt(v, 3)]],
-      flows: [{ pts: [[2, 5], [7, 5], [7, 7]], key: 'i1', norm: 'i6' }, { pts: [[2, 7], [7, 7]], key: 'i2', norm: 'i6' }, { pts: [[7, 7], [7, 9.5]], key: 'i6', norm: 'i6' }, { pts: [[11, 4], [13, 4], [13, 1], [7, 1], [7, 3], [4, 3]], key: 'iout' }] };
+      ['R', 3, 3, 6.5, 3, R(100e3, 'R5')], ['w', [[6.5, 3], [8, 3]]], ['gnd', 3, 3], ['dot', 7, 3], ['w', [[7, 3], [7, 1], [8, 1]]], ['R', 8, 1, 12, 1, R(600e3, 'R2')], ['w', [[12, 1], [13, 1], [13, 4]]], ['val', 7.6, 6, 'up', v => 'U+ ' + fmt(v, 3)]],
+      flows: [{ pts: [[2, 5], [7, 5], [7, 7]], key: 'i1', norm: 'i6' }, { pts: [[2, 7], [7, 7]], key: 'i2', norm: 'i6' }, { pts: [[7, 7], [7, 9.5]], key: 'i6', norm: 'i6' }, { pts: [[11, 4], [13, 4], [13, 1], [7, 1], [7, 3], [3, 3]], key: 'iout' }] };
   },
   lr2(s) {
     const it = [['src', 1, 6, 'Vin'], ['gnd', 1, 7], ['w', [[1, 5], [1, 4], [3, 4]]], ['w', [[7, 4], [9, 4]]], ['dot', 8, 4],
@@ -1692,16 +1715,16 @@ const SCH = {
     const par = { intp: ['C', 9, 0, 12, 0, 'C1 795,8п'], difp: ['C', 9, 0, 12, 0, 'C2 15,9п'] }[s.c];
     it.push(...zin, ...zf);
     if (par) it.push(['w', [[8, 2], [8, 0], [9, 0]]], ['w', [[12, 0], [13, 0], [13, 2]]], ['dot', 8, 2], ['dot', 13, 2], par);
-    return { x0: -1, y0: -0.6, x1: 18, y1: 8, items: it, flows: [{ pts: [[1, 5], [1, 4], [8, 4]], key: 'iin' }, { pts: [[8, 4], [8, 2], [13, 2], [13, 5], [12, 5]], key: 'iin' }] };
+    return { x0: -1, y0: -0.6, x1: 18, y1: 8, items: it, flows: [{ pts: [[1, 5], [1, 4], [8, 4], [8, 2]], key: 'iin', norm: 'iin' }, { pts: [[8, 2], [13, 2]], key: 'main', norm: 'iin' }, ...(par ? [{ pts: [[8, 2], [8, 0], [13, 0], [13, 2]], key: 'side', norm: 'iin' }] : []), { pts: [[13, 2], [13, 5], [12, 5]], key: 'iin', norm: 'iin' }] };
   },
   lr3(s) {
     if (s.c === 'sch') return {
       x0: -1, y0: -0.8, x1: 21, y1: 10.2, items: [
-        ['term', 5, 0, '+15 В'], ['R', 5, 0, 5, 3, 'R1 8к'], ['dot', 5, 3], ['w', [[5, 3], [8, 3]]], ['R', 5, 3, 5, 6, 'R2 2,8к'], ['dot', 5, 6], ['R', 5, 6, 5, 9, ''], ['txt', 4.4, 7.5, 'R3 4,2к', 'right'], ['gnd', 5, 9],
+        ['term', 5, 0, '+15 В', 'r'], ['R', 5, 0, 5, 3, 'R1 8к', null, 'l'], ['dot', 5, 3], ['w', [[5, 3], [8, 3]]], ['R', 5, 3, 5, 6, 'R2 2,8к', null, 'l'], ['dot', 5, 6], ['R', 5, 6, 5, 9, ''], ['txt', 4.4, 7.5, 'R3 4,2к', 'right'], ['gnd', 5, 9],
         ['w', [[5, 6], [6, 6]]], ['w', [[5, 9], [6, 9]]], ['npn', 7, 7.5, '', 'q', true], ['w', [[6, 9], [9, 9]]], ['D', 9, 9, 9, 7.5, 'D1'], ['w', [[8, 7.5], [9, 7.5]]], ['dot', 9, 7.5],
-        ['R', 9, 7.5, 12, 7.5, 'R_B 665к'], ['w', [[12, 7.5], [13, 7.5], [13, 4]]], ['term', 2, 5, 'Uвх'], ['w', [[2, 5], [8, 5]]],
+        ['R', 9, 7.5, 12, 7.5, 'R_B 665к'], ['w', [[12, 7.5], [13, 7.5], [13, 4]]], ['term', 1, 5, 'Uвх'], ['w', [[1, 5], [8, 5]]],
         ['oa', 8, 4, 'LT1001', 'oa'], ['w', [[11, 4], [13, 4]]], ['dot', 13, 4], ['R', 13, 4, 16, 4, 'R4'], ['w', [[16, 4], [18, 4]]], ['dot', 17, 4], ['Z', 17, 6, 17, 4, '', 'z'], ['gnd', 17, 6], ['term', 18, 4, 'out', 'r'],
-        ['val', 5.6, 2.3, 'vm', v => 'U− ' + fmt(v, 2)], ['val', 18, 5, 'vout', F.V], ['txt', 7.6, 9.9, 'VT1']],
+        ['val', 6.6, 2.4, 'vm', v => 'U− ' + fmt(v, 2), 'center'], ['val', 18, 5, 'vout', F.V], ['txt', 7.6, 9.9, 'VT1']],
       flows: [{ pts: [[5, 0], [5, 6]], key: 'idiv' }, { pts: [[5, 6], [5, 9]], key: 'ir3', norm: 'idiv' }, { pts: [[5, 6], [6, 6], [7.35, 7.28], [7.35, 7.72], [6, 9], [5, 9]], key: 'iq', norm: 'idiv' }, { pts: [[13, 4], [13, 7.5], [9, 7.5]], key: 'irb' }, { pts: [[9, 7.5], [8, 7.5]], key: 'ibase' }, { pts: [[5, 9], [6, 9], [9, 9], [9, 7.5]], key: 'id1' }, { pts: [[11, 4], [17, 4], [17, 6]], key: 'iz' }],
     };
     if (s.c === 'win') return {
@@ -1732,13 +1755,13 @@ const SCH = {
       gus: [['box', 8, -0.6, 4, 1.2, 'мост + VD3'], ['w', [[8, 0], [8, 0]]]], gus0: [['box', 8, -0.6, 4, 1.2, 'мост + VD3']],
     }[s.c];
     it.push(...el);
-    return { x0: -1.5, y0: -1.4, x1: 18, y1: 7, items: it, flows: [{ pts: [[2, 4], [7, 4]], key: 'iin', norm: 'iin' }, ...(LR4C[s.c].roc ? [{ pts: [[7, 4], [7, 2], [13, 2], [13, 5]], key: 'ir2', norm: 'iin' }] : []), { pts: [[7, 2], [7, 0], [13, 0], [13, 2]], key: 'iel', norm: 'iin' }, { pts: [[13, 5], [11, 5]], key: 'iin', norm: 'iin' }] };
+    return { x0: -1.5, y0: -1.4, x1: 18, y1: 7, items: it, flows: [{ pts: [[2, 4], [7, 4], [7, 2]], key: 'iin', norm: 'iin' }, ...(LR4C[s.c].roc ? [{ pts: [[7, 2], [13, 2]], key: 'ir2', norm: 'iin' }] : []), ...(s.c.startsWith('gus') ? [{ pts: [[7, 2], [7, 0], [8, 0]], key: 'iel', norm: 'iin' }, { pts: [[12, 0], [13, 0], [13, 2]], key: 'iel', norm: 'iin' }] : [{ pts: [[7, 2], [7, 0], [13, 0], [13, 2]], key: 'iel', norm: 'iin' }]), { pts: [[13, 2], [13, 5], [11, 5]], key: 'iin', norm: 'iin' }] };
   },
   lr5(s) {
     const out = (x) => [['w', [[x, 5], [17, 5]]], ['term', 17, 5, 'out', 'r'], ['val', 14.5, 6, 'vout', v => fmt(v, 2) + ' В']];
     if (s.c === 'lpf') return { x0: -1.5, y0: -0.8, x1: 19, y1: 7.2, items: [['term', 2, 4, 'in'], ['R', 2, 4, 6, 4, 'R1 636,6'], ['w', [[6, 4], [8, 4]]], ['dot', 7, 4], ['oa', 8, 5, 'LT1001', 'oa'], ['w', [[8, 6], [7, 6]]], ['gnd', 7, 6],
       ['w', [[7, 4], [7, 0], [8, 0]]], ['dot', 7, 2], ['w', [[7, 2], [8, 2]]], ['R', 8, 2, 12, 2, 'R2 3180'], ['C', 8, 0, 12, 0, 'C1 ' + si(10e-9 * s.k, 'Ф', 2)], ['w', [[12, 0], [13, 0], [13, 5]]], ['w', [[12, 2], [13, 2]]], ['dot', 13, 2], ['dot', 13, 5], ...out(11)],
-      flows: [{ pts: [[2, 4], [7, 4]], key: 'iin' }, { pts: [[7, 4], [7, 2], [13, 2], [13, 5], [11, 5]], key: 'iin' }] };
+      flows: [{ pts: [[2, 4], [7, 4], [7, 2]], key: 'iin', norm: 'iin' }, { pts: [[7, 2], [13, 2]], key: 'ir', norm: 'iin' }, { pts: [[7, 2], [7, 0], [13, 0], [13, 2]], key: 'ic', norm: 'iin' }, { pts: [[13, 2], [13, 5], [11, 5]], key: 'iin', norm: 'iin' }] };
     if (s.c === 'hpf1') return { x0: -1.5, y0: -0.8, x1: 19, y1: 9.2, items: [['term', 2, 6, 'in'], ['C', 2, 6, 6, 6, 'C1 ' + si(10e-9 * s.k, 'Ф', 2)], ['w', [[6, 6], [8, 6]]], ['dot', 7, 6], ['R', 7, 6, 7, 8.5, 'R1 2650'], ['gnd', 7, 8.5],
       ['oa', 8, 5, 'LT1001', 'oa'], ['R', 4, 4, 8, 4, 'R2 1к'], ['gnd', 4, 4], ['dot', 7, 4], ['w', [[7, 4], [7, 2], [8, 2]]], ['R', 8, 2, 12, 2, 'R3 5к'], ['w', [[12, 2], [13, 2], [13, 5]]], ['dot', 13, 5], ...out(11)],
       flows: [{ pts: [[2, 6], [7, 6], [7, 8.5]], key: 'iin' }, { pts: [[11, 5], [13, 5], [13, 2], [7, 2], [7, 4], [4, 4]], key: 'ifb' }] };
@@ -1772,8 +1795,8 @@ const SCH = {
       flows: [{ pts: [[1, 3], [1, 2], [6, 2]], key: 'isw' }, { pts: [[6, 5], [6, 2]], key: 'iD' }, { pts: [[6, 2], [12, 2]], key: 'iL' }, { pts: [[12, 2], [12, 5]], key: 'iC' }, { pts: [[12, 2], [15, 2], [15, 5]], key: 'io' }] };
   },
   lr8(s) {
-    if (s.c === 'o') return { x0: -1.5, y0: -0.8, x1: 13, y1: 9.6, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [8, 0]]], ['R', 8, 0, 8, 2, 'Rн'], ['npn', 7, 3.5, 'Q1', 'q'], ['dot', 8, 5], ['R', 8, 5, 8, 8, 'R1 10'], ['gnd', 8, 8],
-      ['oa', 2, 3.5, 'LT1001', 'oa'], ['w', [[5, 3.5], [6, 3.5]]], ['term', 0, 4.5, 'Uоп 3 В'], ['w', [[0, 4.5], [2, 4.5]]], ['w', [[8, 5], [10, 5], [10, 9], [1, 9], [1, 2.5], [2, 2.5]]], ['val', 9.6, 1, 'I', v => F.mA(v)], ['val', 7.4, 6.5, 'U1', v => 'U(R1) ' + fmt(v, 2) + ' В', 'right']],
+    if (s.c === 'o') return { x0: -2.6, y0: -0.8, x1: 13, y1: 9.6, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [8, 0]]], ['R', 8, 0, 8, 2, 'Rн'], ['npn', 7, 3.5, 'Q1', 'q'], ['dot', 8, 5], ['R', 8, 5, 8, 8, 'R1 10'], ['gnd', 8, 8],
+      ['oa', 2, 3.5, 'LT1001', 'oa'], ['w', [[5, 3.5], [6, 3.5]]], ['term', 0, 4.5, 'Uоп'], ['w', [[0, 4.5], [2, 4.5]]], ['w', [[8, 5], [10, 5], [10, 9], [1, 9], [1, 2.5], [2, 2.5]]], ['val', 9.6, 1, 'I', v => F.mA(v)], ['val', 7.4, 6.5, 'U1', v => 'U(R1) ' + fmt(v, 2) + ' В', 'right']],
       flows: [{ pts: [[1, 0], [8, 0], [8, 2], [6.65, 3.28], [6.65, 3.72], [8, 5], [8, 8]], key: 'I' }] };
     if (s.c === 'w') return { x0: -1.5, y0: -0.8, x1: 13, y1: 10.4, items: [['term', 1, 0, 'Eп'], ['w', [[1, 0], [7, 0]]], ['R', 3, 0, 3, 3, 'R1'], ['dot', 3, 3], ['w', [[3, 3], [5, 3]]], ['R', 7, 0, 7, 1.5, 'Rн'], ['dot', 3, 0], ['npn', 6, 3, 'T3', 'q'], ['w', [[3, 3], [3, 5.5]]],
       ['npn', 4, 7, 'T1', 'q', true], ['npn', 8, 7, 'T2', 'q'], ['w', [[5, 7], [7, 7]]], ['w', [[7, 4.5], [9, 4.5], [9, 5.5]]], ['dot', 9, 5], ['w', [[9, 5], [10.5, 5], [10.5, 6.2], [6, 6.2], [6, 7]]], ['dot', 6, 7],
